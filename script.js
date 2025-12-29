@@ -1,6 +1,6 @@
 // --- CONFIGURATION ---
 // IMPORTANT: Replace this with your Google Web App URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbxw6ROfMwJ3xa31wG3_cUo_zYFArWc4eMaQ279FqA4uSVvnczhx9ukIK8Skcke7lVkO/exec'; 
+const API_URL = 'https://script.google.com/macros/s/AKfycbyod3dKOwF074gCqXVTFr1slkHgxvWVU2ppjue0Rb43IDF8SD5JQn8cr5YEFACkVF3o/exec'; 
 
 const AdController = window.Adsgram.init({ blockId: "20199" });
 
@@ -79,6 +79,7 @@ const app = {
         localStorage.setItem('av_streak', this.state.streak);
         localStorage.setItem('av_last_visit', this.state.lastVisit);
         localStorage.setItem('av_xp', this.state.userXP);
+        completed: JSON.parse(localStorage.getItem('av_completed')) || []
     },
 
     updateUI: function() {
@@ -292,7 +293,7 @@ const app = {
         } else {
             // --- STEP 2: ACTUAL SECURE CHECK ---
             const userId = this.tg.initDataUnsafe.user.id;
-            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxw6ROfMwJ3xa31wG3_cUo_zYFArWc4eMaQ279FqA4uSVvnczhx9ukIK8Skcke7lVkO/exec"; // <--- Replace this
+            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyod3dKOwF074gCqXVTFr1slkHgxvWVU2ppjue0Rb43IDF8SD5JQn8cr5YEFACkVF3o/exec"; // <--- Replace this
 
             btn.disabled = true;
             btn.innerText = "Verifying...";

@@ -302,7 +302,7 @@ const app = {
             // --- STEP 2: ACTUAL SECURE CHECK VIA MAKE.COM ---
             
             // REPLACE THE URL BELOW WITH YOUR ACTUAL MAKE WEBHOOK URL
-            const MAKE_WEBHOOK_URL = "https://hook.us1.make.com/your_unique_code";
+            const MAKE_WEBHOOK_URL = "https://hook.eu1.make.com/yajll3jij3l64ttshmxn3ul3p1tkivw2";
     
             btn.disabled = true;
             btn.innerText = "Verifying...";

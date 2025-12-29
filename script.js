@@ -1,6 +1,7 @@
 // --- CONFIGURATION ---
 // IMPORTANT: Replace this with your Google Web App URL
 const API_URL = 'https://script.google.com/macros/s/AKfycbyod3dKOwF074gCqXVTFr1slkHgxvWVU2ppjue0Rb43IDF8SD5JQn8cr5YEFACkVF3o/exec'; 
+const MAKE_WEBHOOK_URL = "https://hook.eu1.make.com/yajll3jij3l64ttshmxn3ul3p1tkivw2";
 
 const AdController = window.Adsgram.init({ blockId: "20199" });
 
@@ -273,40 +274,51 @@ const app = {
     },
 
 
-    completeJoinTask: function(btn) {
+   completeJoinTask: function(btn) {
+        // 1. Check if already done
         if (localStorage.getItem('task_join_channel') === 'done') {
             this.tg.showAlert("You've already claimed this reward!");
             return;
         }
-
+    
+        const userId = this.tg.initDataUnsafe?.user?.id;
+        if (!userId) {
+            this.tg.showAlert("Error: User ID not found. Please restart the app.");
+            return;
+        }
+    
         // Identify if this is the first click (Join) or second click (Verify)
         const isVerifying = btn.getAttribute('data-state') === 'verifying';
-
+    
         if (!isVerifying) {
             // --- STEP 1: SEND TO CHANNEL ---
-            this.tg.openTelegramLink("https://t.me/VettedWeb3jobs"); // <--- Replace this
+            this.tg.openTelegramLink("https://t.me/VettedWeb3jobs");
             
             btn.setAttribute('data-state', 'verifying');
             btn.innerText = "Check Status";
             btn.style.background = "#f39c12"; // Warning orange
             this.tg.showAlert("Join the channel, then come back and tap 'Check Status'!");
         } else {
-            // --- STEP 2: ACTUAL SECURE CHECK ---
-            const userId = this.tg.initDataUnsafe.user.id;
-            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyod3dKOwF074gCqXVTFr1slkHgxvWVU2ppjue0Rb43IDF8SD5JQn8cr5YEFACkVF3o/exec"; // <--- Replace this
-
+            // --- STEP 2: ACTUAL SECURE CHECK VIA MAKE.COM ---
+            
+            // REPLACE THE URL BELOW WITH YOUR ACTUAL MAKE WEBHOOK URL
+            const MAKE_WEBHOOK_URL = "https://hook.us1.make.com/your_unique_code";
+    
             btn.disabled = true;
             btn.innerText = "Verifying...";
-
-            fetch(`${SCRIPT_URL}?action=verify&userId=${userId}`)
+    
+            // We send just the userId to Make.com
+            fetch(`${MAKE_WEBHOOK_URL}?userId=${userId}`)
                 .then(res => res.json())
                 .then(data => {
-                    if (data.isMember) {
+                    // Make.com returns {"isMember": true} or {"isMember": false}
+                    if (data.isMember === true) {
                         // SUCCESS
                         this.addPoints(100);
                         localStorage.setItem('task_join_channel', 'done');
                         btn.innerText = "Completed ✅";
-                        btn.style.background = "#2ecc71";
+                        btn.style.background = "#2ecc71"; // Success green
+                        btn.disabled = true;
                         this.tg.showAlert("Success! 100 Gems added.");
                     } else {
                         // FAILED
@@ -316,7 +328,7 @@ const app = {
                     }
                 })
                 .catch(err => {
-                    console.error(err);
+                    console.error("Make.com Error:", err);
                     this.tg.showAlert("Verification server is busy. Try again in a minute!");
                     btn.disabled = false;
                     btn.innerText = "Check Status";

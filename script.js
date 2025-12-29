@@ -1,6 +1,6 @@
 // --- CONFIGURATION ---
 // IMPORTANT: Replace this with your Google Web App URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbxnADOFRIaB-FxbZaVhsvxW4cEq-Y2tK-Q6A8FqUmbRrZvv3KKeyeMoSJLxE5SCBTrM/exec'; 
+const API_URL = 'https://script.google.com/macros/s/AKfycbxBfOkWs85Q4zxTLnAaU187JdK2CwPQ0XZDmaOPsvM7WkWmysFiQ6MVn5-SgEvfY4nh/exec'; 
 
 const AdController = window.Adsgram.init({ blockId: "20199" });
 
@@ -292,7 +292,7 @@ const app = {
         } else {
             // --- STEP 2: ACTUAL SECURE CHECK ---
             const userId = this.tg.initDataUnsafe.user.id;
-            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxnADOFRIaB-FxbZaVhsvxW4cEq-Y2tK-Q6A8FqUmbRrZvv3KKeyeMoSJLxE5SCBTrM/exec"; // <--- Replace this
+            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxBfOkWs85Q4zxTLnAaU187JdK2CwPQ0XZDmaOPsvM7WkWmysFiQ6MVn5-SgEvfY4nh/exec"; // <--- Replace this
 
             btn.disabled = true;
             btn.innerText = "Verifying...";

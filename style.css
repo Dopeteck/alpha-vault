@@ -1,0 +1,181 @@
+:root {
+    --bg-color: #0f0f0f;
+    --card-bg: #1c1c1e;
+    --accent: #007aff;
+    --text-primary: #ffffff;
+    --text-secondary: #8e8e93;
+    --success: #34c759;
+    --safe-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    overflow-x: hidden;
+    padding-bottom: calc(70px + var(--safe-bottom)); /* Space for nav */
+}
+
+/* --- Header --- */
+.header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(15, 15, 15, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.user-info h2 { margin: 0; font-size: 18px; }
+.user-info span { font-size: 12px; color: var(--text-secondary); }
+
+.points-pill {
+    background: rgba(0, 122, 255, 0.2);
+    color: var(--accent);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+/* --- Global Section Styles --- */
+.section { display: none; padding: 16px; animation: fadeIn 0.3s ease; }
+.section.active { display: block; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+h3 { font-size: 18px; margin: 0 0 16px 0; color: var(--text-primary); }
+
+/* --- Command Center (Home) Styles --- */
+.hero-card {
+    background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255,255,255,0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-card::before {
+    content: ''; position: absolute; top: -50%; right: -50%; width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(0,122,255,0.15) 0%, transparent 70%);
+    border-radius: 50%;
+}
+
+.xp-bar-container {
+    height: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; overflow: hidden; margin-top: 10px;
+}
+.xp-bar-fill {
+    height: 100%; background: linear-gradient(90deg, var(--accent), #5ac8fa); transition: width 0.5s ease;
+}
+
+.action-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;
+}
+.action-card {
+    background: var(--card-bg); padding: 16px; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.05); text-align: center; cursor: pointer; transition: transform 0.1s;
+}
+.action-card:active { transform: scale(0.96); }
+.action-icon { display: block; font-size: 24px; margin-bottom: 8px; }
+.action-label { font-size: 13px; font-weight: 600; }
+
+.quest-box {
+    background: linear-gradient(90deg, rgba(52, 199, 89, 0.1) 0%, rgba(52, 199, 89, 0.05) 100%);
+    border: 1px solid rgba(52, 199, 89, 0.3);
+    border-radius: 12px; padding: 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;
+}
+.quest-btn {
+    background: var(--success); color: #000; border: none; padding: 8px 16px;
+    border-radius: 20px; font-weight: bold; font-size: 12px; cursor: pointer;
+}
+.quest-btn:active { transform: scale(0.95); }
+
+/* --- Feed Cards (Jobs/News) --- */
+.card {
+    background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 12px;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+.card h4 { margin: 0 0 8px 0; font-size: 16px; color: #fff; }
+.card p { margin: 0; font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
+.tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); margin-right: 8px;}
+
+/* --- University Grouping --- */
+.path-container { margin-bottom: 24px; }
+.path-header {
+    font-size: 18px; color: var(--accent); font-weight: bold; padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px;
+}
+
+/* --- Salary Engine --- */
+.salary-row { margin-bottom: 16px; }
+.salary-meta { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+.demand-bar-bg { height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; }
+.demand-bar-fill { height: 100%; background: var(--success); border-radius: 3px; }
+
+/* --- Navigation --- */
+.nav-bar {
+    position: fixed; bottom: 0; width: 100%;
+    background: rgba(28, 28, 30, 0.95); backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    display: flex; justify-content: space-around;
+    padding: 10px 0 calc(10px + var(--safe-bottom)) 0;
+    z-index: 200;
+}
+.nav-item {
+    background: none; border: none; color: var(--text-secondary);
+    font-size: 10px; display: flex; flex-direction: column; align-items: center;
+    cursor: pointer; transition: color 0.2s, transform 0.1s;
+}
+.nav-item.active { color: var(--accent); }
+.nav-item:active { transform: scale(0.9); }
+.nav-icon { font-size: 20px; margin-bottom: 4px; }
+
+/* --- Animations --- */
+.streak-banner {
+    display: none; background: linear-gradient(90deg, #ff9500 0%, #ffcc00 100%);
+    color: #000; padding: 8px 16px; font-size: 13px; font-weight: 600;
+    justify-content: space-between; align-items: center;
+}
+
+.floating-reward {
+    position: fixed; pointer-events: none; color: var(--success);
+    font-weight: bold; font-size: 24px; animation: floatUp 1.5s ease-out forwards; z-index: 999;
+}
+@keyframes floatUp { 0% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -60px); } }
+
+
+.video-wrapper {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+    height: 0;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #000;
+}
+
+.video-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* Video Card specific styling */
+.video-card {
+    border: 1px solid rgba(0, 122, 255, 0.2);
+}

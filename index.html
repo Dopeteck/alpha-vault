@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Alpha Vault</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+</head>
+<body>
+
+    <header class="header">
+        <div class="user-info">
+            <h2 id="userName">Alpha User</h2>
+            <span id="userRank">Level 1 Scout</span>
+        </div>
+        <div class="points-pill">
+            💎 <span id="pointsDisplay">0</span>
+        </div>
+    </header>
+
+    <div id="streakBanner" class="streak-banner">
+        <span>🔥 Daily Streak Active!</span>
+        <span id="streakCount">1 Day</span>
+    </div>
+
+    <section id="home" class="section active">
+        <div class="hero-card">
+            <div class="level-info">
+                <h1 class="level-title">Current Status</h1>
+                <span class="next-level">XP: <span id="xpDisplay">0</span>/5000</span>
+            </div>
+            <div class="xp-bar-container">
+                <div class="xp-bar-fill" id="xpBar" style="width: 0%;"></div>
+            </div>
+        </div>
+
+        <div class="task-card">
+            <div class="task-info">
+                <h4>📢 Join our Channel</h4>
+                <p>+100 Gems</p>
+            </div>
+            <button class="claim-btn" onclick="app.completeJoinTask(this)">Join</button>
+        </div>
+
+        <div class="quest-box">
+            <div class="quest-info">
+                <h4>Daily Supply Drop</h4>
+                <p>Watch 1 brief ad to claim +50 Gems.</p>
+            </div>
+            <button class="quest-btn" onclick="app.watchAd()">CLAIM</button>
+        </div>
+
+        <div class="action-grid">
+            <div class="action-card" onclick="app.navTo('jobs')">
+                <span class="action-icon">💼</span>
+                <span class="action-label">Find Work</span>
+            </div>
+            <div class="action-card" onclick="app.navTo('learn')">
+                <span class="action-icon">🎓</span>
+                <span class="action-label">Academy</span>
+            </div>
+            <div class="action-card" onclick="app.navTo('news')">
+                <span class="action-icon">⚡</span>
+                <span class="action-label">Alpha Feed</span>
+            </div>
+            <div class="action-card" onclick="app.shareApp()">
+                <span class="action-icon">🚀</span>
+                <span class="action-label">Invite</span>
+            </div>
+        </div>
+
+        <div class="section-header">
+            <h3>2026 Projections</h3>
+            <span class="live-badge">● LIVE DATA</span>
+        </div>
+        <div id="salaryContainer">Loading Market Data...</div>
+    </section>
+
+    <section id="jobs" class="section">
+        <h3>Active Opportunities</h3>
+        <div id="jobsContainer" class="feed-container">
+            <div class="loader">Fetching jobs...</div>
+        </div>
+    </section>
+
+    <section id="learn" class="section">
+        <h3>Mastery Paths</h3>
+        <div id="learnContainer" class="feed-container">
+            <div class="loader">Loading courses...</div>
+        </div>
+    </section>
+
+    <section id="news" class="section">
+        <h3>Market Intelligence</h3>
+        <div id="newsContainer" class="feed-container">
+            <div class="loader">Syncing news...</div>
+        </div>
+    </section>
+
+    <nav class="nav-bar">
+        <button class="nav-item active" data-target="home" onclick="app.changeTab('home', this)">
+            <span class="nav-icon">🏠</span>Home
+        </button>
+        <button class="nav-item" data-target="jobs" onclick="app.changeTab('jobs', this)">
+            <span class="nav-icon">💼</span>Jobs
+        </button>
+        <button class="nav-item" data-target="learn" onclick="app.changeTab('learn', this)">
+            <span class="nav-icon">🎓</span>Learn
+        </button>
+        <button class="nav-item" data-target="news" onclick="app.changeTab('news', this)">
+            <span class="nav-icon">📰</span>News
+        </button>
+    </nav>
+
+    <script src="script.js"></script>
+</body>
+</html>

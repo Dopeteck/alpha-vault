@@ -1,6 +1,7 @@
 // --- CONFIGURATION ---
 // IMPORTANT: Replace this with your Google Web App URL
 const API_URL = 'https://script.google.com/macros/s/AKfycbx25jZSyjpwt7nVNY0B1XaRAkKNIvE4k68PkeC0nOvkoyH-9lVLzempxTUzFkYNn_2y/exec'; 
+const AdController = window.Adsgram.init({ blockId: "20199" });
 
 const app = {
     state: {
@@ -310,4 +311,5 @@ const app = {
 };
 
 // Start App
+
 window.onload = () => app.init();

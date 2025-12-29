@@ -365,7 +365,7 @@ const app = {
     },
 
     shareApp: function() {
-        const url = "https://t.me/share/url?url=" + encodeURIComponent("https://t.me/YourBot");
+        const url = "https://t.me/share/url?url=" + encodeURIComponent("https://t.me/web3jobhubbot/AlphaVault");
         this.tg.openTelegramLink(url);
     },
 

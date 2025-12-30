@@ -227,7 +227,7 @@ const app = {
             html += `</div>`;
         }
         document.getElementById('learnContainer').innerHTML = html;
-    }
+    },
  
    completeCourse: function(courseId, btn) {
         if (this.state.completed.includes(courseId)) return;

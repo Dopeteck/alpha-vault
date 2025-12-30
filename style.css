@@ -319,3 +319,22 @@ h3 { font-size: 18px; margin: 0 0 16px 0; color: var(--text-primary); }
 .card {
     position: relative;
 }
+
+.complete-btn.finished {
+    background: #222 !important;
+    color: #666 !important;
+    border: 1px solid #444 !important;
+    cursor: default;
+    opacity: 0.8;
+}
+
+.unlock-hint {
+    font-size: 12px;
+    padding: 8px;
+    background: rgba(255, 149, 0, 0.1);
+    border: 1px dashed #ff9500;
+    border-radius: 8px;
+    text-align: center;
+    margin-top: 10px;
+    display: none; /* Hidden by default */
+}

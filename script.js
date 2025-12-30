@@ -257,28 +257,43 @@ const app = {
     },
 
     completeCourse: function(courseId, btn) {
-        // Prevent the card click from firing again
-        if (event) event.stopPropagation();
+        // 1. STOP EVENT BUBBLING
+        // This prevents the card's background link from opening when clicking the button
+        if (window.event) {
+            window.event.stopPropagation();
+            window.event.stopImmediatePropagation();
+        }
     
-        if (this.state.completed.includes(courseId)) return;
+        // 2. SCOPE FIX
+        // Use 'app' (your main object name) instead of 'this' to avoid "undefined" errors
+        const state = app.state; 
     
-        // Save progress
-        this.state.completed.push(courseId);
-        this.addPoints(100);
-        this.saveState();
-        this.renderUI();
+        // 3. SAFETY CHECK
+        // Ensure completed is an array and check if courseId is already there
+        if (!state.completed) state.completed = [];
+        if (state.completed.includes(courseId)) return;
     
-        // Sync with Google Sheets (GET request)
-        const userId = this.tg.initDataUnsafe?.user?.id;
-        const logUrl = `${API_URL}?action=logCompletion&userId=${userId}&taskName=${courseId}`;
-        fetch(logUrl).catch(err => console.log("Sheet sync failed"));
+        // 4. PROGRESS LOGIC
+        state.completed.push(courseId);
+        app.addPoints(100);
+        app.saveState(); // Saves to localStorage
+        app.renderUI();  // Updates points/XP on screen
     
-        // UI Update
+        // 5. GOOGLE SHEETS SYNC (GET Request)
+        const userId = app.tg.initDataUnsafe?.user?.id || "anonymous";
+        if (typeof API_URL !== 'undefined' && API_URL !== 'YOUR_URL') {
+            const logUrl = `${API_URL}?action=logCompletion&userId=${userId}&taskName=${courseId}`;
+            fetch(logUrl).catch(err => console.log("Sheet sync failed, but points saved locally."));
+        }
+    
+        // 6. UI FEEDBACK
         btn.innerText = "✅ Completed";
         btn.disabled = true;
         btn.classList.add('finished');
         
-        if(this.tg.HapticFeedback) this.tg.HapticFeedback.notificationOccurred('success');
+        // Physical haptic vibration and alert
+        if(app.tg.HapticFeedback) app.tg.HapticFeedback.notificationOccurred('success');
+        app.tg.showAlert("Success! +100 XP added.");
     },
 
 

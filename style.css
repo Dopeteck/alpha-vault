@@ -299,3 +299,44 @@ h3 { font-size: 18px; margin: 0 0 16px 0; color: var(--text-primary); }
     margin-top: 10px;
     display: block; /* Shown by default for incomplete items */
 }
+
+/* --- Fix for Join Telegram Section --- */
+.section[id="home"] div:has(> .quest-btn), 
+.quest-box {
+    background: linear-gradient(90deg, rgba(0, 136, 204, 0.1) 0%, rgba(0, 136, 204, 0.05) 100%);
+    border: 1px solid rgba(0, 136, 204, 0.3);
+    border-radius: 12px; 
+    padding: 16px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    margin-top: 15px;
+    margin-bottom: 24px;
+}
+
+/* Telegram Blue Brand Color for the Join Button */
+.quest-btn {
+    background: #0088cc; 
+    color: #ffffff; 
+    border: none; 
+    padding: 10px 20px;
+    border-radius: 20px; 
+    font-weight: bold; 
+    font-size: 13px; 
+    cursor: pointer;
+    transition: transform 0.1s;
+    box-shadow: 0 4px 10px rgba(0, 136, 204, 0.3);
+}
+
+.quest-btn:active { 
+    transform: scale(0.95); 
+}
+
+/* Styling for the text next to the button */
+.section[id="home"] h4 + p,
+.quest-box span {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}

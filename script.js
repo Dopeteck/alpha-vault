@@ -1,6 +1,6 @@
 // --- CONFIGURATION ---
 // IMPORTANT: Replace this with your Google Web App URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbyod3dKOwF074gCqXVTFr1slkHgxvWVU2ppjue0Rb43IDF8SD5JQn8cr5YEFACkVF3o/exec'; 
+const API_URL = 'https://script.google.com/macros/s/AKfycbzx950-pJC89Yt-P_S85JuWjbxLXgb1-fRcZC9JcHe9xNsyH7tgm-idZpX44xqIc1Wo/exec'; 
 const MAKE_WEBHOOK_URL = "https://hook.eu1.make.com/yajll3jij3l64ttshmxn3ul3p1tkivw2";
 
 const AdController = window.Adsgram.init({ blockId: "20199" });
@@ -80,7 +80,9 @@ const app = {
         localStorage.setItem('av_streak', this.state.streak);
         localStorage.setItem('av_last_visit', this.state.lastVisit);
         localStorage.setItem('av_xp', this.state.userXP);
+        localStorage.setItem('av_completed', JSON.stringify(this.state.completed));
         completed: JSON.parse(localStorage.getItem('av_completed')) || []
+        lastAdTime: 0
     },
 
     updateUI: function() {
@@ -377,9 +379,9 @@ const app = {
             this.adController.show().then((result) => {
                 // result.done is true if they watched the whole video
                 if (result.done) {
-                    this.addPoints(50);
-                    this.showFloatingReward(50, "Ad Bonus");
-                    this.tg.showAlert("Success! +50 Gems added.");
+                    this.addPoints(10);
+                    this.showFloatingReward(10, "Ad Bonus");
+                    this.tg.showAlert("Success! +10 Gems added.");
                 } else {
                     // This happens if they close the ad early
                     this.tg.showAlert("You must watch the full ad to earn gems.");
@@ -390,8 +392,8 @@ const app = {
             });
         } else {
             // Fallback for local testing (No Adsgram object)
-            this.addPoints(50);
-            this.showFloatingReward(50, "Test Reward");
+            this.addPoints(10);
+            this.showFloatingReward(10, "Test Reward");
         }
     },
 

@@ -255,3 +255,37 @@ h3 { font-size: 18px; margin: 0 0 16px 0; color: var(--text-primary); }
     color: #888;
     cursor: not-allowed;
 }
+
+
+/* --- Fix for University Grouping --- */
+.path-container { 
+    margin-bottom: 32px; /* Bigger gap between groups */
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.02); /* Very subtle tint to group items */
+    border-radius: 16px;
+}
+
+.path-header {
+    font-size: 20px; 
+    color: var(--accent); 
+    font-weight: 800; 
+    padding: 8px 0 16px 0;
+    margin-bottom: 16px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-bottom: 2px solid var(--accent); /* Thicker line in accent color */
+    display: flex;
+    align-items: center;
+}
+
+.path-header::before {
+    content: '◈'; /* Adds a professional marker before the group name */
+    margin-right: 10px;
+    font-size: 14px;
+}
+
+/* Add space between cards inside a group */
+.path-container .card {
+    margin-bottom: 16px;
+    border-left: 3px solid var(--accent); /* Visual link to the group color */
+}

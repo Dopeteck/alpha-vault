@@ -237,63 +237,70 @@ const app = {
         document.getElementById('learnContainer').innerHTML = html;
     },
  
-   // Add these to your app object
-    openMaterial: function(link, courseId) {
-        // 1. Open the link
+   openMaterial: function(link, courseId) {
+        // 1. Open the course link
         this.tg.openLink(link);
         
-        // 2. Unlock the reward button after a small delay 
-        // This forces them to at least switch apps/tabs
+        // 2. If they already finished it, don't start a timer
+        if (this.state.completed.includes(courseId)) return;
+    
+        // 3. Update the hint text to show they are "studying"
+        const status = document.getElementById(`status-${courseId}`);
+        if (status) {
+            status.innerText = "⏳ Studying... Claim button appears in 30s";
+            status.style.color = "#ff9500"; // Warning orange
+        }
+    
+        // 4. Unlock the reward button after 30 seconds
         setTimeout(() => {
             const btn = document.getElementById(`btn-${courseId}`);
             const status = document.getElementById(`status-${courseId}`);
-            if (btn) {
+            if (btn && !this.state.completed.includes(courseId)) {
                 btn.style.display = "block";
-                btn.classList.remove('locked');
                 if (status) status.style.display = "none";
-                this.tg.showAlert("XP Reward Unlocked!");
+                this.tg.showAlert("You've studied enough! Claim your XP now.");
             }
-        }, 5000); // 5 second delay
+        }, 30000); // 30,000ms = 30 seconds
     },
 
-    completeCourse: function(courseId, btn) {
+   completeCourse: function(courseId, btn) {
         // 1. STOP EVENT BUBBLING
-        // This prevents the card's background link from opening when clicking the button
         if (window.event) {
             window.event.stopPropagation();
             window.event.stopImmediatePropagation();
         }
     
-        // 2. SCOPE FIX
-        // Use 'app' (your main object name) instead of 'this' to avoid "undefined" errors
+        // 2. SCOPE & SAFETY CHECK
         const state = app.state; 
-    
-        // 3. SAFETY CHECK
-        // Ensure completed is an array and check if courseId is already there
         if (!state.completed) state.completed = [];
-        if (state.completed.includes(courseId)) return;
+        
+        // If already finished, don't allow claiming again
+        if (state.completed.includes(courseId)) {
+            app.tg.showAlert("You have already completed this course.");
+            return;
+        }
     
-        // 4. PROGRESS LOGIC
+        // 3. LOWERED REWARD LOGIC
         state.completed.push(courseId);
-        app.addPoints(100);
+        app.state.userXP = (Number(app.state.userXP) || 0) + 20; // Changed from 100 to 20
+        
         app.saveState(); // Saves to localStorage
-        app.renderUI();  // Updates points/XP on screen
+        app.renderUI();  // Updates screen
     
-        // 5. GOOGLE SHEETS SYNC (GET Request)
+        // 4. GOOGLE SHEETS SYNC
         const userId = app.tg.initDataUnsafe?.user?.id || "anonymous";
         if (typeof API_URL !== 'undefined' && API_URL !== 'YOUR_URL') {
             const logUrl = `${API_URL}?action=logCompletion&userId=${userId}&taskName=${courseId}`;
-            fetch(logUrl).catch(err => console.log("Sheet sync failed, but points saved locally."));
+            fetch(logUrl).catch(err => console.log("Sheet sync failed"));
         }
     
-        // 6. UI FEEDBACK
-        btn.innerText = "✅ Completed";
+        // 5. PERMANENT UI FEEDBACK
+        btn.innerText = "✅ Course Completed";
         btn.disabled = true;
         btn.classList.add('finished');
         
-        // Physical haptic vibration and alert
         if(app.tg.HapticFeedback) app.tg.HapticFeedback.notificationOccurred('success');
-        app.tg.showAlert("Success! +100 XP added.");
+        app.tg.showAlert("Excellent! +20 XP earned.");
     },
 
 

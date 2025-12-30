@@ -289,3 +289,33 @@ h3 { font-size: 18px; margin: 0 0 16px 0; color: var(--text-primary); }
     margin-bottom: 16px;
     border-left: 3px solid var(--accent); /* Visual link to the group color */
 }
+
+/* Update your CSS */
+.card-footer {
+    position: relative;
+    z-index: 99; /* Higher than the video/card body */
+    margin-top: 15px;
+    pointer-events: auto !important;
+}
+
+.complete-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: bold;
+    background: var(--success);
+    color: #000;
+    border: none;
+    pointer-events: auto !important;
+}
+
+.complete-btn.locked {
+    background: #444;
+    color: #888;
+    cursor: not-allowed;
+}
+
+/* Ensure the card link doesn't cover the button */
+.card {
+    position: relative;
+}

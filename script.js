@@ -159,49 +159,67 @@ const app = {
     },
 
     // UNIVERSITY GROUPING LOGIC
-    renderLearn: function(items) {
+   renderLearn: function(items) {
+        if (!items || !Array.isArray(items)) {
+            document.getElementById('learnContainer').innerHTML = '<p>No materials found.</p>';
+            return;
+        }
+    
         const grouped = items.reduce((acc, item) => {
-            const path = item.Path || 'General';
+            const path = item.Path || item.path || 'General Resources';
             if (!acc[path]) acc[path] = [];
             acc[path].push(item);
             return acc;
         }, {});
-
+    
         let html = '';
         for (const [path, courses] of Object.entries(grouped)) {
             html += `<div class="path-container">
                         <div class="path-header">${path}</div>`;
             
             html += courses.map(c => {
-                // Create a unique ID from the title (slugify)
-                const courseId = c.Title.replace(/\s+/g, '-').toLowerCase();
-                const isFinished = this.state.completed.includes(courseId);
-                const isYouTube = c.Link.includes('youtube.com') || c.Link.includes('youtu.be');
+                const title = c.Title || c.title || "Untitled Material";
+                const link = c.Link || c.link || "";
+                const courseId = title.replace(/\s+/g, '-').toLowerCase();
+                const isFinished = (this.state.completed || []).includes(courseId);
                 
-                // Define the button HTML based on status
+                // --- MATERIAL DETECTION LOGIC ---
+                const isYouTube = link.includes('youtube.com') || link.includes('youtu.be');
+                const isPDF = link.toLowerCase().endsWith('.pdf');
+                const isDoc = link.includes('docs.google.com') || link.includes('drive.google.com');
+    
                 const actionBtn = isFinished 
                     ? `<button class="complete-btn finished" disabled>✅ Completed</button>`
-                    : `<button class="complete-btn" onclick="app.completeCourse('${courseId}', this)">Claim +100 XP</button>`;
-
-                if (isYouTube) {
-                    const videoId = c.Link.split('v=')[1]?.split('&')[0] || c.Link.split('/').pop();
+                    : `<button class="complete-btn" onclick="event.stopPropagation(); app.completeCourse('${courseId}', this)">Claim +100 XP</button>`;
+    
+                // 1. RENDER YOUTUBE VIDEO
+                if (isYouTube && link !== "") {
+                    const videoId = link.split('v=')[1]?.split('&')[0] || link.split('/').pop();
                     return `
                         <div class="card video-card">
-                            <h4>${c.Title}</h4>
+                            <div class="badge">VIDEO</div>
+                            <h4>${title}</h4>
                             <div class="video-wrapper">
                                 <iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>
                             </div>
-                            <div class="card-footer">
-                                ${actionBtn}
-                            </div>
+                            <div class="card-footer">${actionBtn}</div>
                         </div>`;
-                } else {
+                } 
+                
+                // 2. RENDER PDF OR DOC CARD
+                else {
+                    let icon = isPDF ? '📄' : isDoc ? '📝' : '🔗';
+                    let typeLabel = isPDF ? 'PDF DOCUMENT' : isDoc ? 'COURSE DOC' : 'LINK';
+                    
                     return `
-                        <div class="card doc-card" onclick="app.tg.openLink('${c.Link}')">
-                            <h4>${c.Title}</h4>
-                            <div class="card-footer">
-                                ${actionBtn}
+                        <div class="card doc-card" onclick="app.tg.openLink('${link}')">
+                            <div class="badge">${typeLabel}</div>
+                            <div class="doc-info">
+                                <span class="doc-icon">${icon}</span>
+                                <h4>${title}</h4>
                             </div>
+                            <p class="tap-hint">Tap to open material</p>
+                            <div class="card-footer">${actionBtn}</div>
                         </div>`;
                 }
             }).join('');
@@ -209,7 +227,7 @@ const app = {
             html += `</div>`;
         }
         document.getElementById('learnContainer').innerHTML = html;
-    },
+    }
  
    completeCourse: function(courseId, btn) {
         if (this.state.completed.includes(courseId)) return;

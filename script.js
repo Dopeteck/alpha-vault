@@ -267,7 +267,7 @@ const app = {
                 this.renderLearn(this.lastItems); // Refresh to show checkmark
                 if(this.tg.HapticFeedback) this.tg.HapticFeedback.impactOccurred('light');
             }
-        }, 30000); 
+        }, 3000); 
     },
     
     claimPathXP: function(pathId, amount, btn) {

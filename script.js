@@ -255,7 +255,7 @@ const app = {
     
         const status = document.getElementById(`status-${courseId}`);
         if (status) {
-            status.innerText = "⏳ Studying... (30s)";
+            status.innerText = "⏳ Studying... (3s)";
             status.style.color = "#ff9500";
         }
     

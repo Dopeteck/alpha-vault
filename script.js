@@ -161,14 +161,15 @@ const app = {
     },
 
     // UNIVERSITY GROUPING LOGIC
-   renderLearn: function(items) {
+  renderLearn: function(items) {
         if (!items || !Array.isArray(items)) {
             document.getElementById('learnContainer').innerHTML = '<p>No materials found.</p>';
             return;
         }
     
         const grouped = items.reduce((acc, item) => {
-            const path = item.Path || item.path || 'General Resources';
+            // Trim whitespace to avoid ghost groups
+            const path = (item.Path || item.path || 'General Resources').trim();
             if (!acc[path]) acc[path] = [];
             acc[path].push(item);
             return acc;
@@ -185,36 +186,41 @@ const app = {
                 const courseId = title.replace(/\s+/g, '-').toLowerCase();
                 const isFinished = (this.state.completed || []).includes(courseId);
                 
-                // --- MATERIAL DETECTION LOGIC ---
                 const isYouTube = link.includes('youtube.com') || link.includes('youtu.be');
                 const isPDF = link.toLowerCase().endsWith('.pdf');
                 const isDoc = link.includes('docs.google.com') || link.includes('drive.google.com');
     
-                const actionBtn = isFinished 
+                // --- IMPROVED ACTION BUTTON LOGIC ---
+                // The button starts hidden (display:none) unless already finished
+                let actionBtn = isFinished 
                     ? `<button class="complete-btn finished" disabled>✅ Completed</button>`
-                    : `<button class="complete-btn" onclick="event.stopPropagation(); app.completeCourse('${courseId}', this)">Claim +100 XP</button>`;
+                    : `<div id="status-${courseId}" class="unlock-hint">🔓 Open material to unlock XP</div>
+                       <button id="btn-${courseId}" class="complete-btn" 
+                               onclick="event.stopPropagation(); app.completeCourse('${courseId}', this)" 
+                               style="display:none;">Claim +100 XP</button>`;
     
-                // 1. RENDER YOUTUBE VIDEO
                 if (isYouTube && link !== "") {
                     const videoId = link.split('v=')[1]?.split('&')[0] || link.split('/').pop();
                     return `
-                        <div class="card video-card">
+                        <div class="card video-card" onclick="app.openMaterial('${link}', '${courseId}')">
                             <div class="badge">VIDEO</div>
                             <h4>${title}</h4>
                             <div class="video-wrapper">
-                                <iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>
+                                <iframe 
+                                    src="https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=0" 
+                                    frameborder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                    allowfullscreen>
+                                </iframe>
                             </div>
                             <div class="card-footer">${actionBtn}</div>
                         </div>`;
-                } 
-                
-                // 2. RENDER PDF OR DOC CARD
-                else {
+                } else {
                     let icon = isPDF ? '📄' : isDoc ? '📝' : '🔗';
                     let typeLabel = isPDF ? 'PDF DOCUMENT' : isDoc ? 'COURSE DOC' : 'LINK';
                     
                     return `
-                        <div class="card doc-card" onclick="app.tg.openLink('${link}')">
+                        <div class="card doc-card" onclick="app.openMaterial('${link}', '${courseId}')">
                             <div class="badge">${typeLabel}</div>
                             <div class="doc-info">
                                 <span class="doc-icon">${icon}</span>
@@ -231,33 +237,49 @@ const app = {
         document.getElementById('learnContainer').innerHTML = html;
     },
  
-   completeCourse: function(courseId, btn) {
-        if (this.state.completed.includes(courseId)) return;
-
-        // 1. Existing Local Logic
-        this.state.completed.push(courseId);
-        this.addPoints(100);
-        localStorage.setItem('av_completed', JSON.stringify(this.state.completed));
-
-        // 2. Production Webhook Trigger
-        const userId = this.tg.initDataUnsafe?.user?.id;
-        if (userId && API_URL !== 'YOUR_URL') {
-            fetch(API_URL, {
-                method: 'POST',
-                body: JSON.stringify({
-                    userId: userId,
-                    courseId: courseId
-                })
-            }).catch(err => console.log("Webhook failed, but points saved locally."));
-        }
-
-        // 3. UI Feedback
-        btn.innerText = "✅ Completed";
-        btn.classList.add('finished');
-        btn.disabled = true;
-        if(this.tg.HapticFeedback) this.tg.HapticFeedback.notificationOccurred('success');
+   // Add these to your app object
+    openMaterial: function(link, courseId) {
+        // 1. Open the link
+        this.tg.openLink(link);
+        
+        // 2. Unlock the reward button after a small delay 
+        // This forces them to at least switch apps/tabs
+        setTimeout(() => {
+            const btn = document.getElementById(`btn-${courseId}`);
+            const status = document.getElementById(`status-${courseId}`);
+            if (btn) {
+                btn.style.display = "block";
+                btn.classList.remove('locked');
+                if (status) status.style.display = "none";
+                this.tg.showAlert("XP Reward Unlocked!");
+            }
+        }, 5000); // 5 second delay
     },
 
+    completeCourse: function(courseId, btn) {
+        // Prevent the card click from firing again
+        if (event) event.stopPropagation();
+    
+        if (this.state.completed.includes(courseId)) return;
+    
+        // Save progress
+        this.state.completed.push(courseId);
+        this.addPoints(100);
+        this.saveState();
+        this.renderUI();
+    
+        // Sync with Google Sheets (GET request)
+        const userId = this.tg.initDataUnsafe?.user?.id;
+        const logUrl = `${API_URL}?action=logCompletion&userId=${userId}&taskName=${courseId}`;
+        fetch(logUrl).catch(err => console.log("Sheet sync failed"));
+    
+        // UI Update
+        btn.innerText = "✅ Completed";
+        btn.disabled = true;
+        btn.classList.add('finished');
+        
+        if(this.tg.HapticFeedback) this.tg.HapticFeedback.notificationOccurred('success');
+    }
 
 
 

@@ -378,22 +378,37 @@ const app = {
         if (this.adController) {
             this.adController.show().then((result) => {
                 // result.done is true if they watched the whole video
-                if (result.done) {
+                if (result && result.done) {
+                    // 1. Give the points
                     this.addPoints(10);
+                    
+                    // 2. CRUCIAL: Save the points to the phone immediately!
+                    this.saveState(); 
+                    
+                    // 3. Update the text on the screen
+                    if (typeof this.renderUI === 'function') this.renderUI();
+    
                     this.showFloatingReward(10, "Ad Bonus");
                     this.tg.showAlert("Success! +10 Gems added.");
                 } else {
-                    // This happens if they close the ad early
                     this.tg.showAlert("You must watch the full ad to earn gems.");
                 }
             }).catch((err) => {
-                console.log("Ad error or no fill:", err);
-                this.tg.showAlert("No ads available right now. Try again later!");
+                // Only show "No ads" if the error happened BEFORE the ad started
+                // If the ad already finished, we don't want to confuse the user
+                console.error("Ad System Error:", err);
+                
+                // This is the tweak: Only alert if it's a real 'No Fill' error
+                if (!this.state.points_updated_recently) {
+                     this.tg.showAlert("No ads available right now. Try again later!");
+                }
             });
         } else {
-            // Fallback for local testing (No Adsgram object)
+            // Fallback for local testing
             this.addPoints(10);
+            this.saveState(); // Added here too
             this.showFloatingReward(10, "Test Reward");
+            if (typeof this.renderUI === 'function') this.renderUI();
         }
     },
 

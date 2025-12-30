@@ -158,7 +158,27 @@ h3 { font-size: 18px; margin: 0 0 16px 0; color: var(--text-primary); }
 @keyframes floatUp { 0% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -60px); } }
 
 
+.video-wrapper {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+    height: 0;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #000;
+}
 
+.video-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* Video Card specific styling */
+.video-card {
+    border: 1px solid rgba(0, 122, 255, 0.2);
+}
 
 /* Style for Locked Jobs */
 .locked-card {
@@ -270,6 +290,13 @@ h3 { font-size: 18px; margin: 0 0 16px 0; color: var(--text-primary); }
     border-left: 3px solid var(--accent); /* Visual link to the group color */
 }
 
+/* Update your CSS */
+.card-footer {
+    position: relative;
+    z-index: 99; /* Higher than the video/card body */
+    margin-top: 15px;
+    pointer-events: auto !important;
+}
 
 .complete-btn {
     width: 100%;
@@ -288,7 +315,10 @@ h3 { font-size: 18px; margin: 0 0 16px 0; color: var(--text-primary); }
     cursor: not-allowed;
 }
 
-
+/* Ensure the card link doesn't cover the button */
+.card {
+    position: relative;
+}
 
 .complete-btn.finished {
     background: #222 !important;
@@ -434,4 +464,3 @@ h3 { font-size: 18px; margin: 0 0 16px 0; color: var(--text-primary); }
     margin-top: 12px;
     pointer-events: auto !important;
 }
-

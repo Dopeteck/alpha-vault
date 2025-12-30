@@ -260,7 +260,7 @@ const app = {
                 if (status) status.style.display = "none";
                 this.tg.showAlert("You've studied enough! Claim your XP now.");
             }
-        }, 30000); // 30,000ms = 30 seconds
+        }, 3000); // 30,000ms = 30 seconds
     },
 
    completeCourse: function(courseId, btn) {

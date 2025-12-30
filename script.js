@@ -375,43 +375,47 @@ const app = {
     },
 
    watchAd: function() {
-        if (this.adController) {
-            this.adController.show().then((result) => {
-                // result.done is true if they watched the whole video
-                if (result && result.done) {
-                    // 1. Give the points
-                    this.addPoints(10);
-                    
-                    // 2. CRUCIAL: Save the points to the phone immediately!
-                    this.saveState(); 
-                    
-                    // 3. Update the text on the screen
-                    if (typeof this.renderUI === 'function') this.renderUI();
+        const now = Date.now();
+        const cooldownPeriod = 900000; // 15mins  in milliseconds
+        const maxAds = 10;
     
-                    this.showFloatingReward(10, "Ad Bonus");
-                    this.tg.showAlert("Success! +10 Gems added.");
-                } else {
-                    this.tg.showAlert("You must watch the full ad to earn gems.");
+        // Check if we need to reset the counter (if more than 1 hour has passed)
+        if (now - this.state.lastAdReset > cooldownPeriod) {
+            this.state.adCount = 0;
+            this.state.lastAdReset = now;
+            this.saveState();
+        }
+    
+        // Check if they hit the limit
+        if (this.state.adCount >= maxAds) {
+            const minutesLeft = Math.ceil((cooldownPeriod - (now - this.state.lastAdReset)) / 60000);
+            this.tg.showAlert(`You've hit the limit! Next energy in ${minutesLeft} minutes.`);
+            return;
+        }
+    
+        if (this.adController) {
+            let rewardDelivered = false;
+    
+            this.adController.show().then((result) => {
+                if (result && result.done) {
+                    rewardDelivered = true;
+                    
+                    // --- SUCCESS LOGIC ---
+                    this.state.adCount++; // Increase the count
+                    this.addPoints(10);
+                    this.saveState();
+                    this.renderUI();
+                    
+                    this.tg.showAlert(`Success! (${this.state.adCount}/${maxAds} ads watched)`);
                 }
             }).catch((err) => {
-                // Only show "No ads" if the error happened BEFORE the ad started
-                // If the ad already finished, we don't want to confuse the user
-                console.error("Ad System Error:", err);
-                
-                // This is the tweak: Only alert if it's a real 'No Fill' error
-                if (!this.state.points_updated_recently) {
-                     this.tg.showAlert("No ads available right now. Try again later!");
+                if (!rewardDelivered) {
+                    this.tg.showAlert("No ads available right now.");
                 }
             });
-        } else {
-            // Fallback for local testing
-            this.addPoints(10);
-            this.saveState(); // Added here too
-            this.showFloatingReward(10, "Test Reward");
-            if (typeof this.renderUI === 'function') this.renderUI();
         }
     },
-
+    
     shareApp: function() {
         const url = "https://t.me/share/url?url=" + encodeURIComponent("https://t.me/web3jobhubbot/AlphaVault");
         this.tg.openTelegramLink(url);

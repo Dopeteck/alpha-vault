@@ -279,7 +279,7 @@ const app = {
         btn.classList.add('finished');
         
         if(this.tg.HapticFeedback) this.tg.HapticFeedback.notificationOccurred('success');
-    }
+    },
 
 
 

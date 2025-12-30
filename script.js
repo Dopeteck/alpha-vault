@@ -166,9 +166,9 @@ const app = {
             document.getElementById('learnContainer').innerHTML = '<p>No materials found.</p>';
             return;
         }
+        this.lastItems = items; // Store for refresh
     
         const grouped = items.reduce((acc, item) => {
-            // Trim whitespace to avoid ghost groups
             const path = (item.Path || item.path || 'General Resources').trim();
             if (!acc[path]) acc[path] = [];
             acc[path].push(item);
@@ -177,27 +177,32 @@ const app = {
     
         let html = '';
         for (const [path, courses] of Object.entries(grouped)) {
+            // Calculate Path Progress
+            const completedInPath = courses.filter(c => {
+                const id = (c.Title || c.title).replace(/\s+/g, '-').toLowerCase();
+                return (this.state.completed || []).includes(id);
+            }).length;
+            
+            const isPathMastered = completedInPath === courses.length;
+            const pathId = path.replace(/\s+/g, '-').toLowerCase();
+            const isPathClaimed = (this.state.claimedPaths || []).includes(pathId);
+    
             html += `<div class="path-container">
-                        <div class="path-header">${path}</div>`;
+                        <div class="path-header">
+                            <span>${path}</span>
+                            <span class="path-stats">${completedInPath}/${courses.length} Lessons</span>
+                        </div>`;
             
             html += courses.map(c => {
-                const title = c.Title || c.title || "Untitled Material";
+                const title = c.Title || c.title || "Untitled";
                 const link = c.Link || c.link || "";
                 const courseId = title.replace(/\s+/g, '-').toLowerCase();
-                const isFinished = (this.state.completed || []).includes(courseId);
-                
+                const isDone = (this.state.completed || []).includes(courseId);
                 const isYouTube = link.includes('youtube.com') || link.includes('youtu.be');
-                const isPDF = link.toLowerCase().endsWith('.pdf');
-                const isDoc = link.includes('docs.google.com') || link.includes('drive.google.com');
     
-                // --- IMPROVED ACTION BUTTON LOGIC ---
-                // The button starts hidden (display:none) unless already finished
-                let actionBtn = isFinished 
-                    ? `<button class="complete-btn finished" disabled>✅ Completed</button>`
-                    : `<div id="status-${courseId}" class="unlock-hint">🔓 Open material to unlock XP</div>
-                       <button id="btn-${courseId}" class="complete-btn" 
-                               onclick="event.stopPropagation(); app.completeCourse('${courseId}', this)" 
-                               style="display:none;">Claim +100 XP</button>`;
+                let lessonStatus = isDone 
+                    ? `<div class="lesson-done-tag">✅ Lesson Finished</div>`
+                    : `<div id="status-${courseId}" class="unlock-hint">📖 Open for 30s to finish</div>`;
     
                 if (isYouTube && link !== "") {
                     const videoId = link.split('v=')[1]?.split('&')[0] || link.split('/').pop();
@@ -207,60 +212,76 @@ const app = {
                             <h4>${title}</h4>
                             <div class="video-wrapper">
                                 <iframe 
-                                    src="https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=0" 
+                                    src="https://www.youtube.com/embed/${videoId}?rel=0&playsinline=0&modestbranding=1" 
                                     frameborder="0" 
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" 
                                     allowfullscreen>
                                 </iframe>
                             </div>
-                            <div class="card-footer">${actionBtn}</div>
+                            <div class="card-footer">${lessonStatus}</div>
                         </div>`;
                 } else {
-                    let icon = isPDF ? '📄' : isDoc ? '📝' : '🔗';
-                    let typeLabel = isPDF ? 'PDF DOCUMENT' : isDoc ? 'COURSE DOC' : 'LINK';
-                    
                     return `
                         <div class="card doc-card" onclick="app.openMaterial('${link}', '${courseId}')">
-                            <div class="badge">${typeLabel}</div>
-                            <div class="doc-info">
-                                <span class="doc-icon">${icon}</span>
-                                <h4>${title}</h4>
-                            </div>
-                            <p class="tap-hint">Tap to open material</p>
-                            <div class="card-footer">${actionBtn}</div>
+                            <div class="badge">DOCUMENT</div>
+                            <div class="doc-info"><h4>${title}</h4></div>
+                            <div class="card-footer">${lessonStatus}</div>
                         </div>`;
                 }
             }).join('');
+    
+            // Path Reward Button
+            if (isPathMastered && !isPathClaimed) {
+                html += `
+                    <div class="path-reward-box">
+                        <button class="path-claim-btn" onclick="event.stopPropagation(); app.claimPathXP('${pathId}', 100, this)">
+                            Claim ${path} Mastery (+100 XP)
+                        </button>
+                    </div>`;
+            } else if (isPathClaimed) {
+                html += `<div class="path-claimed-status">🏅 Path Mastered</div>`;
+            }
             
             html += `</div>`;
         }
         document.getElementById('learnContainer').innerHTML = html;
     },
  
-   openMaterial: function(link, courseId) {
-        // 1. Open the course link
+  openMaterial: function(link, courseId) {
         this.tg.openLink(link);
         
-        // 2. If they already finished it, don't start a timer
+        // Prevent double-claiming the "Finished" status
         if (this.state.completed.includes(courseId)) return;
     
-        // 3. Update the hint text to show they are "studying"
         const status = document.getElementById(`status-${courseId}`);
         if (status) {
-            status.innerText = "⏳ Studying... Claim button appears in 30s";
-            status.style.color = "#ff9500"; // Warning orange
+            status.innerText = "⏳ Studying... (30s)";
+            status.style.color = "#ff9500";
         }
     
-        // 4. Unlock the reward button after 30 seconds
+        // Mark as finished ONLY after 30 seconds
         setTimeout(() => {
-            const btn = document.getElementById(`btn-${courseId}`);
-            const status = document.getElementById(`status-${courseId}`);
-            if (btn && !this.state.completed.includes(courseId)) {
-                btn.style.display = "block";
-                if (status) status.style.display = "none";
-                this.tg.showAlert("You've studied enough! Claim your XP now.");
+            if (!this.state.completed.includes(courseId)) {
+                this.state.completed.push(courseId);
+                this.saveState();
+                this.renderLearn(this.lastItems); // Refresh to show checkmark
+                if(this.tg.HapticFeedback) this.tg.HapticFeedback.impactOccurred('light');
             }
-        }, 3000); // 30,000ms = 30 seconds
+        }, 30000); 
+    },
+    
+    claimPathXP: function(pathId, amount, btn) {
+        if (!this.state.claimedPaths) this.state.claimedPaths = [];
+        if (this.state.claimedPaths.includes(pathId)) return;
+    
+        // Award XP
+        this.state.claimedPaths.push(pathId);
+        this.state.userXP = (Number(this.state.userXP) || 0) + amount;
+        
+        this.saveState();
+        this.renderUI();
+        
+        this.tg.showAlert(`🎉 Path Complete! +${amount} XP earned.`);
     },
 
    completeCourse: function(courseId, btn) {

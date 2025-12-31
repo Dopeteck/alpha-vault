@@ -10,7 +10,10 @@ const app = {
         points: parseInt(localStorage.getItem('av_points')) || 0,
         streak: parseInt(localStorage.getItem('av_streak')) || 0,
         lastVisit: localStorage.getItem('av_last_visit') || null,
-        userXP: parseInt(localStorage.getItem('av_xp')) || 0
+        userXP: parseInt(localStorage.getItem('av_xp')) || 0,
+        completed: JSON.parse(localStorage.getItem('av_completed')) || [],
+         // Add this line:
+        lastAdTime: parseInt(localStorage.getItem('av_last_ad_time')) || 0
     },
 
     tg: window.Telegram.WebApp,
@@ -81,10 +84,9 @@ const app = {
         localStorage.setItem('av_last_visit', this.state.lastVisit);
         localStorage.setItem('av_xp', this.state.userXP);
         localStorage.setItem('av_completed', JSON.stringify(this.state.completed));
-        completed: JSON.parse(localStorage.getItem('av_completed')) || []
-        lastAdTime: 0
+        localStorage.setItem('av_last_ad_time', this.state.lastAdTime);
     },
-
+    
     updateUI: function() {
         if (this.state.userXP > 500) {
             document.getElementById('userRank').innerText = "Level 2 Sentinel";
@@ -103,24 +105,28 @@ const app = {
     },
 
     // --- DATA ENGINE ---
-    fetchData: async function() {
-        if(API_URL.includes("YOUR_GOOGLE")) {
-            console.warn("API URL not set.");
-            return;
-        }
-
+   fetchData: async function() {
         try {
             const res = await fetch(API_URL);
+            if (!res.ok) throw new Error('Network response was not ok');
             const data = await res.json();
             
-            this.renderJobs(data.jobs);
-            this.renderLearn(data.learn);
-            this.renderNews(data.news);
+            // Ensure data exists before trying to render
+            if (data.jobs) this.renderJobs(data.jobs);
+            if (data.learn) this.renderLearn(data.learn);
+            if (data.news) this.renderNews(data.news);
         } catch (e) {
-            console.error("Fetch failed", e);
+            console.error("Fetch failed. Check your Google App Script permissions.", e);
+            // Optional: Show error in UI
+            document.getElementById('jobsContainer').innerHTML = "<p>Failed to load data.</p>";
         }
     },
-
+    
+    // THE FIX: Renamed to match your calls
+    renderUI: function() {
+        this.updateUI();
+    },
+    
    renderJobs: function(jobs) {
         const html = jobs.map(j => {
             // 1. Get the requirement (default to 0 if empty/missing)

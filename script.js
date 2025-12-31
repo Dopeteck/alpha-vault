@@ -395,12 +395,32 @@ startStudyTimer: function(courseId, source, type) {
     renderSalaryEngine: function() {
         const container = document.getElementById('salaryContainer');
         if(!container) return;
-        container.innerHTML = `
-            <div class="salary-row"><div class="salary-meta"><span>Smart Contract Eng</span><span style="color:#2ecc71">$180k</span></div><div class="demand-bar-bg"><div class="demand-bar-fill" style="width:95%"></div></div></div>
-            <div class="salary-row"><div class="salary-meta"><span>Rust Dev</span><span style="color:#2ecc71">$200k</span></div><div class="demand-bar-bg"><div class="demand-bar-fill" style="width:90%"></div></div></div>
-        `;
+    
+        const data = [
+            { role: "ZK-Proof Engineer", pay: "$220k", demand: 98 },
+            { role: "AI Agent Architect", pay: "$195k", demand: 92 },
+            { role: "Protocol Security", pay: "$210k", demand: 88 },
+            { role: "Rust/Solana Dev", pay: "$185k", demand: 95 },
+            { role: "Web3 Product Lead", pay: "$160k", demand: 82 }
+        ];
+    
+        container.innerHTML = data.map(item => `
+            <div class="salary-row">
+                <div class="salary-meta">
+                    <span>${item.role}</span>
+                    <span style="color:#2ecc71; font-weight:bold;">${item.pay}</span>
+                </div>
+                <div class="demand-bar-bg">
+                    <div class="demand-bar-fill" style="width:${item.demand}%"></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:10px; margin-top:4px; color:#888;">
+                    <span>Demand Index</span>
+                    <span>${item.demand}%</span>
+                </div>
+            </div>
+        `).join('');
     },
-
+    
     completeJoinTask: function(btn) {
         if (localStorage.getItem('task_join_channel') === 'done') {
             this.tg.showAlert("Reward already claimed!");

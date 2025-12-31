@@ -1,6 +1,11 @@
 // --- CONFIGURATION ---
-const API_URL = 'https://script.google.com/macros/s/AKfycbzx950-pJC89Yt-P_S85JuWjbxLXgb1-fRcZC9JcHe9xNsyH7tgm-idZpX44xqIc1Wo/exec'; 
+// IMPORTANT: Replace this with your Google Web App URL (for loading Jobs/News data)
+const API_URL = 'https://script.google.com/macros/s/AKfycbzGgcIXcOHW5goq1kxc1atqLqG9Bzn7PudTjg1iyv-7hBVexwEb_b-GnsxZhnEDTO0u/exec'; 
+
+// IMPORTANT: Your Make.com Webhook URL (for Channel Verification)
 const MAKE_WEBHOOK_URL = "https://hook.eu1.make.com/yajll3jij3l64ttshmxn3ul3p1tkivw2";
+
+const AdController = window.Adsgram.init({ blockId: "20199" });
 
 const app = {
     state: {
@@ -8,11 +13,9 @@ const app = {
         streak: parseInt(localStorage.getItem('av_streak')) || 0,
         lastVisit: localStorage.getItem('av_last_visit') || null,
         userXP: parseInt(localStorage.getItem('av_xp')) || 0,
+        // FIX: Added missing state variables
         completed: JSON.parse(localStorage.getItem('av_completed')) || [],
-        claimedPaths: JSON.parse(localStorage.getItem('av_claimedPaths')) || [],
-        lastAdTime: parseInt(localStorage.getItem('av_last_ad_time')) || 0,
-        adCount: parseInt(localStorage.getItem('av_ad_count')) || 0,
-        lastAdReset: parseInt(localStorage.getItem('av_ad_reset')) || Date.now()
+        lastAdTime: parseInt(localStorage.getItem('av_last_ad_time')) || 0
     },
 
     tg: window.Telegram.WebApp,
@@ -21,19 +24,60 @@ const app = {
         this.tg.ready();
         this.tg.expand();
         
+        // 1. Personalization
         const user = this.tg.initDataUnsafe?.user;
         if (user) {
             document.getElementById('userName').innerText = `Agent ${user.first_name}`;
         }
 
+        // 2. Load Data
         this.updateUI();
         this.checkStreak();
         this.fetchData();
         this.renderSalaryEngine();
 
-        if (window.Adsgram) {
-            this.adController = window.Adsgram.init({ blockId: "20199" });
+        // 3. Setup Ad Controller (Mock if SDK fails)
+        this.adController = window.Adsgram?.init({ blockId: "20199" });
+    },
+
+    // --- GAMIFICATION ---
+    checkStreak: function() {
+        const now = new Date();
+        const todayStr = now.toDateString();
+        const lastStr = this.state.lastVisit;
+
+        if (lastStr !== todayStr) {
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            if (lastStr === yesterday.toDateString()) {
+                this.state.streak++;
+                this.showStreakBanner(true);
+            } else if (lastStr) {
+                this.state.streak = 1; // Broken streak
+            } else {
+                this.state.streak = 1; // First visit
+            }
+            
+            // Award Daily Login Bonus
+            this.addPoints(10);
+            this.showFloatingReward(10, "Daily Bonus");
+            
+            this.state.lastVisit = todayStr;
+            this.saveState();
+        } else {
+            // Already visited today
+            this.showStreakBanner(false);
         }
+    },
+
+    addPoints: function(amount) {
+        const start = this.state.points;
+        this.state.points += amount;
+        this.state.userXP += amount; // XP mimics points for now
+        this.saveState();
+        this.animateCounter("pointsDisplay", start, this.state.points);
+        this.updateUI();
     },
 
     saveState: function() {
@@ -41,78 +85,87 @@ const app = {
         localStorage.setItem('av_streak', this.state.streak);
         localStorage.setItem('av_last_visit', this.state.lastVisit);
         localStorage.setItem('av_xp', this.state.userXP);
+        // FIX: Saving the new variables
         localStorage.setItem('av_completed', JSON.stringify(this.state.completed));
-        localStorage.setItem('av_claimedPaths', JSON.stringify(this.state.claimedPaths));
         localStorage.setItem('av_last_ad_time', this.state.lastAdTime);
-        localStorage.setItem('av_ad_count', this.state.adCount);
-        localStorage.setItem('av_ad_reset', this.state.lastAdReset);
     },
 
     updateUI: function() {
-        let rank = "Level 1 Recruit";
-        if (this.state.userXP > 500) rank = "Level 2 Sentinel";
-        if (this.state.userXP > 1000) rank = "Level 3 Elite";
-        if (this.state.userXP >= 1500) rank = "Vault Guardian";
-        if (this.state.userXP >= 5000) rank = "Legendary Whale";
+        if (this.state.userXP > 500) document.getElementById('userRank').innerText = "Level 2 Sentinel";
+        if (this.state.userXP > 1000) document.getElementById('userRank').innerText = "Level 3 Elite";
+        if (this.state.userXP >= 1500) document.getElementById('userRank').innerText = "Vault Guardian";
+        if (this.state.userXP >= 5000) document.getElementById('userRank').innerText = "Legendary Whale";
         
-        const rankEl = document.getElementById('userRank');
-        if(rankEl) rankEl.innerText = rank;
-
         document.getElementById('pointsDisplay').innerText = this.state.points;
         document.getElementById('xpDisplay').innerText = this.state.userXP;
         
+        // Simple Level Logic: Cap at 5000 for demo
         const progress = Math.min((this.state.userXP / 5000) * 100, 100);
-        const xpBar = document.getElementById('xpBar');
-        if(xpBar) xpBar.style.width = `${progress}%`;
-        
-        const streakEl = document.getElementById('streakCount');
-        if(streakEl) streakEl.innerText = `${this.state.streak} Days`;
+        document.getElementById('xpBar').style.width = `${progress}%`;
+        document.getElementById('streakCount').innerText = `${this.state.streak} Days`;
     },
 
-    renderUI: function() { this.updateUI(); },
-
+    // --- DATA ENGINE ---
     fetchData: async function() {
+        if(API_URL.includes("YOUR_GOOGLE")) {
+            console.warn("API URL not set.");
+            return;
+        }
+
         try {
             const res = await fetch(API_URL);
             const data = await res.json();
-            if (data.jobs) this.renderJobs(data.jobs);
-            if (data.learn) this.renderLearn(data.learn);
-            if (data.news) this.renderNews(data.news);
+            
+            this.renderJobs(data.jobs);
+            this.renderLearn(data.learn);
+            this.renderNews(data.news);
         } catch (e) {
             console.error("Fetch failed", e);
-            document.getElementById('jobsContainer').innerHTML = "<p>Data currently unavailable.</p>";
         }
     },
 
-    // --- JOB FEATURE (With MinGems Lock) ---
     renderJobs: function(jobs) {
         const html = jobs.map(j => {
+            // 1. Get the requirement (default to 0 if empty/missing)
             const requiredGems = parseInt(j.MinGems) || 0;
+            
+            // 2. Check if the user is allowed to click
             const isLocked = this.state.points < requiredGems;
+
+            // 3. Create the card
             return `
                 <div class="card ${isLocked ? 'locked-card' : ''}" 
                     onclick="${isLocked ? `app.showLockWarning(${requiredGems})` : `app.tg.openLink('${j.Link || '#'}')`}">
+                    
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <h4>${j.Title}</h4>
-                        <span class="tag">${isLocked ? '🔒 Locked' : (j.Type || 'Job')}</span>
+                        <span class="tag">${isLocked ? '🔒 Locked' : j.Type}</span>
                     </div>
+                    
                     <p>${j.Company} • ${j.Salary}</p>
-                    ${isLocked ? `<div class="lock-overlay">Need ${requiredGems} Gems</div>` : `<div class="unlock-hint">🔓 Access Granted</div>`}
-                </div>`;
+                    
+                    ${isLocked ? 
+                        `<div class="lock-overlay">Need ${requiredGems} Gems to Unlock</div>` : 
+                        `<div class="unlock-hint">🔓 Access Granted</div>`
+                    }
+                </div>
+            `;
         }).join('');
+
         document.getElementById('jobsContainer').innerHTML = html;
     },
 
     showLockWarning: function(required) {
-        this.tg.showAlert(`🚫 Elite Access Only!\n\nYou need ${required} Gems to view this link.\n\nWatch ads or complete tasks to earn more!`);
+        this.tg.showAlert(`🚫 Access Denied!\n\nThis is an Elite Job. You need ${required} Gems to view the link.\n\nEarn more by watching ads or completing tasks!`);
+        if (this.tg.HapticFeedback) {
+            this.tg.HapticFeedback.notificationOccurred('error');
+        }
     },
 
-    // --- LEARN FEATURE (With YouTube & 30s Timer) ---
+    // --- UNIVERSITY / LEARN LOGIC (WITH TIMER) ---
     renderLearn: function(items) {
-        if (!items) return;
-        this.lastItems = items;
         const grouped = items.reduce((acc, item) => {
-            const path = (item.Path || 'General Resources').trim();
+            const path = item.Path || 'General';
             if (!acc[path]) acc[path] = [];
             acc[path].push(item);
             return acc;
@@ -120,158 +173,284 @@ const app = {
 
         let html = '';
         for (const [path, courses] of Object.entries(grouped)) {
-            const pathId = path.replace(/\s+/g, '-').toLowerCase();
-            const completedInPath = courses.filter(c => this.state.completed.includes((c.Title || "").replace(/\s+/g, '-').toLowerCase())).length;
-            const isPathMastered = completedInPath === courses.length;
-            const isPathClaimed = this.state.claimedPaths.includes(pathId);
-
-            html += `<div class="path-container">
-                        <div class="path-header"><span>${path}</span><span class="path-stats">${completedInPath}/${courses.length}</span></div>`;
+            html += `<div class="path-container"><div class="path-header">${path}</div>`;
             
             html += courses.map(c => {
-                const title = c.Title || "Untitled";
-                const link = c.Link || "";
-                const courseId = title.replace(/\s+/g, '-').toLowerCase();
-                const isDone = this.state.completed.includes(courseId);
-                const isYouTube = link.includes('youtube.com') || link.includes('youtu.be');
-                const statusHtml = isDone ? `<div class="lesson-done-tag">✅ Finished</div>` : `<div id="status-${courseId}" class="unlock-hint">📖 30s Study</div>`;
+                // Create a unique ID from the title (slugify)
+                const courseId = c.Title.replace(/\s+/g, '-').toLowerCase();
+                const isFinished = this.state.completed.includes(courseId);
+                const isYouTube = c.Link.includes('youtube.com') || c.Link.includes('youtu.be');
+                
+                // FEATURE: Timer Button Logic
+                const actionBtn = isFinished 
+                    ? `<button class="complete-btn finished" disabled>✅ Completed</button>`
+                    : `<button class="complete-btn" id="btn-${courseId}" onclick="app.startStudyTimer('${courseId}', '${c.Link}')">Start Study (+100 XP)</button>`;
 
                 if (isYouTube) {
-                    const videoId = link.split('v=')[1]?.split('&')[0] || link.split('/').pop();
-                    return `<div class="card video-card" onclick="app.openMaterial('${link}', '${courseId}')">
-                                <h4>${title}</h4>
+                    const videoId = c.Link.split('v=')[1]?.split('&')[0] || c.Link.split('/').pop();
+                    return `
+                        <div class="card video-card">
+                            <h4>${c.Title}</h4>
+                            <div class="video-wrapper">
                                 <iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>
-                                ${statusHtml}
-                            </div>`;
+                            </div>
+                            <div class="card-footer">
+                                ${actionBtn}
+                            </div>
+                        </div>`;
+                } else {
+                    return `
+                        <div class="card doc-card">
+                            <h4>${c.Title}</h4>
+                            <div class="card-footer">
+                                ${actionBtn}
+                            </div>
+                        </div>`;
                 }
-                return `<div class="card doc-card" onclick="app.openMaterial('${link}', '${courseId}')"><h4>${title}</h4>${statusHtml}</div>`;
             }).join('');
-
-            if (isPathMastered && !isPathClaimed) {
-                html += `<button class="path-claim-btn" onclick="app.claimPathXP('${pathId}', 100)">Claim Mastery (+100 XP)</button>`;
-            }
+            
             html += `</div>`;
         }
         document.getElementById('learnContainer').innerHTML = html;
     },
 
-    openMaterial: function(link, courseId) {
+    // FEATURE: 30-Second Study Timer
+    startStudyTimer: function(courseId, link) {
+        const btn = document.getElementById(`btn-${courseId}`);
+        let timeLeft = 30; // 30 second requirement
+
+        // 1. Open the link for the user
         this.tg.openLink(link);
-        if (this.state.completed.includes(courseId)) return;
-        const status = document.getElementById(`status-${courseId}`);
-        let timeLeft = 30;
-        const timer = setInterval(() => {
+
+        // 2. Disable button and start countdown
+        btn.disabled = true;
+        btn.style.opacity = "0.6";
+        
+        const countdown = setInterval(() => {
             timeLeft--;
-            if (status) status.innerText = `⏳ Studying... (${timeLeft}s)`;
+            btn.innerText = `Studying... (${timeLeft}s)`;
+
             if (timeLeft <= 0) {
-                clearInterval(timer);
-                if (!this.state.completed.includes(courseId)) {
-                    this.state.completed.push(courseId);
-                    this.state.userXP += 20;
-                    this.saveState();
-                    this.renderLearn(this.lastItems);
-                    this.updateUI();
-                }
+                clearInterval(countdown);
+                btn.innerText = "Claim +100 XP";
+                btn.style.opacity = "1";
+                btn.disabled = false;
+                btn.style.background = "#2ecc71"; // Change to success green
+                // Change the click to the completion function
+                btn.onclick = () => this.completeCourse(courseId, btn);
             }
         }, 1000);
     },
 
-    // --- TELEGRAM JOIN FEATURE (Make.com) ---
-    completeJoinTask: function(btn) {
-        const userId = this.tg.initDataUnsafe?.user?.id;
-        if (!userId) return;
-        if (btn.getAttribute('data-state') !== 'verifying') {
-            this.tg.openTelegramLink("https://t.me/VettedWeb3jobs");
-            btn.setAttribute('data-state', 'verifying');
-            btn.innerText = "Verify Join";
-        } else {
-            btn.innerText = "Checking...";
-            fetch(`${MAKE_WEBHOOK_URL}?userId=${userId}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.isMember) {
-                        this.addPoints(100);
-                        btn.innerText = "Completed ✅";
-                        btn.disabled = true;
-                    } else {
-                        this.tg.showAlert("Not found in channel yet!");
-                        btn.innerText = "Verify Join";
-                    }
-                });
-        }
-    },
+    completeCourse: function(courseId, btn) {
+        if (this.state.completed.includes(courseId)) return;
 
-    // --- ADS & REWARDS ---
-    watchAd: function() {
-        const now = Date.now();
-        if (now - this.state.lastAdTime < 60000) {
-            this.tg.showAlert("Ads charging. Wait a moment.");
-            return;
-        }
-        if (this.adController) {
-            this.adController.show().then(result => {
-                if (result?.done) {
-                    this.state.lastAdTime = Date.now();
-                    this.addPoints(10);
-                }
-            });
-        }
-    },
-
-    addPoints: function(amount) {
-        this.state.points += amount;
-        this.state.userXP += amount;
+        // 1. Local Logic
+        this.state.completed.push(courseId);
+        this.addPoints(100);
         this.saveState();
-        this.updateUI();
+
+        // 2. Webhook Trigger (Optional data sync)
+        const userId = this.tg.initDataUnsafe?.user?.id;
+        if (userId) {
+            // We reuse the Google Script for general data or Make if you prefer
+            // For now, we just log it or you can fire a pixel
+            console.log("Course completed synced");
+        }
+
+        // 3. UI Feedback
+        btn.innerText = "✅ Completed";
+        btn.classList.add('finished');
+        btn.disabled = true;
+        if(this.tg.HapticFeedback) this.tg.HapticFeedback.notificationOccurred('success');
     },
 
     renderNews: function(news) {
-        document.getElementById('newsContainer').innerHTML = news.map(n => `
-            <div class="card" onclick="app.tg.openLink('${n.Link}')">
+        const html = news.map(n => `
+            <div class="card" onclick="app.tg.openLink('${n.Link || '#'}')">
                 <h4>${n.Headline}</h4>
-                <p>${n.Source}</p>
-            </div>`).join('');
+                <p>${new Date(n.Date).toLocaleDateString()} • ${n.Source}</p>
+            </div>
+        `).join('');
+        document.getElementById('newsContainer').innerHTML = html;
     },
 
     renderSalaryEngine: function() {
         const roles = [
-            { role: "Smart Contract Eng", salary: "$180k+", demand: 95 },
-            { role: "ZK Researcher", salary: "$200k+", demand: 98 }
+            { role: "Smart Contract Eng", salary: "$180k - $300k", demand: 95 },
+            { role: "Rust Developer", salary: "$160k - $250k", demand: 90 },
+            { role: "ZK Researcher", salary: "$200k - $400k", demand: 98 },
+            { role: "DeFi Product Mgr", salary: "$140k - $220k", demand: 85 }
         ];
-        document.getElementById('salaryContainer').innerHTML = roles.map(r => `
+
+        const html = roles.map(r => `
             <div class="salary-row">
-                <span>${r.role} <b>${r.salary}</b></span>
-                <div class="demand-bar-bg"><div class="demand-bar-fill" style="width:${r.demand}%"></div></div>
-            </div>`).join('');
+                <div class="salary-meta">
+                    <span style="font-weight:600">${r.role}</span>
+                    <span style="color:var(--success)">${r.salary}</span>
+                </div>
+                <div class="demand-bar-bg">
+                    <div class="demand-bar-fill" style="width:${r.demand}%"></div>
+                </div>
+            </div>
+        `).join('');
+        document.getElementById('salaryContainer').innerHTML = html;
     },
 
-    checkStreak: function() {
-        const today = new Date().toDateString();
-        if (this.state.lastVisit !== today) {
-            this.state.streak = (this.state.lastVisit === new Date(Date.now() - 86400000).toDateString()) ? this.state.streak + 1 : 1;
-            this.state.lastVisit = today;
-            this.addPoints(10);
-            this.saveState();
+    // --- TASK VERIFICATION (MAKE.COM INTEGRATION) ---
+    completeJoinTask: function(btn) {
+        if (localStorage.getItem('task_join_channel') === 'done') {
+            this.tg.showAlert("You've already claimed this reward!");
+            return;
+        }
+
+        // Identify if this is the first click (Join) or second click (Verify)
+        const isVerifying = btn.getAttribute('data-state') === 'verifying';
+
+        if (!isVerifying) {
+            // --- STEP 1: SEND TO CHANNEL ---
+            this.tg.openTelegramLink("https://t.me/VettedWeb3jobs");
+            
+            btn.setAttribute('data-state', 'verifying');
+            btn.innerText = "Check Status";
+            btn.style.background = "#f39c12"; // Warning orange
+            this.tg.showAlert("Join the channel, then come back and tap 'Check Status'!");
+        } else {
+            // --- STEP 2: VERIFY VIA MAKE.COM ---
+            const userId = this.tg.initDataUnsafe?.user?.id;
+            
+            // Safety check for user ID (in case testing outside Telegram)
+            if (!userId) {
+                this.tg.showAlert("Could not identify user. Are you using the Telegram App?");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Verifying...";
+
+            // Send POST request to Make.com Webhook
+            fetch(MAKE_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    action: "verify_membership",
+                    userId: userId,
+                    platform: "telegram"
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                // Make.com should return { "isMember": true } or false
+                if (data.isMember === true) {
+                    // SUCCESS
+                    this.addPoints(100);
+                    localStorage.setItem('task_join_channel', 'done');
+                    btn.innerText = "Completed ✅";
+                    btn.style.background = "#2ecc71";
+                    this.tg.showAlert("Success! 100 Gems added.");
+                } else {
+                    // FAILED
+                    this.tg.showAlert("❌ You haven't joined yet! Please join and try again.");
+                    btn.disabled = false;
+                    btn.innerText = "Check Status";
+                }
+            })
+            .catch(err => {
+                console.error("Verification Error:", err);
+                this.tg.showAlert("Verification server error. Please try again later.");
+                btn.disabled = false;
+                btn.innerText = "Check Status";
+            });
         }
     },
 
+    // --- UI INTERACTIONS ---
     changeTab: function(tabId, btn) {
         document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
+        
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
         btn.classList.add('active');
+
+        // Haptic Feedback
         if(this.tg.HapticFeedback) this.tg.HapticFeedback.impactOccurred('light');
     },
 
-    claimPathXP: function(pathId, amount) {
-        if (this.state.claimedPaths.includes(pathId)) return;
-        this.state.claimedPaths.push(pathId);
-        this.state.userXP += amount;
-        this.saveState();
-        this.updateUI();
-        this.tg.showAlert(`🎉 Mastery Bonus! +${amount} XP`);
+    navTo: function(tabId) {
+        const btn = document.querySelector(`.nav-item[data-target="${tabId}"]`);
+        if(btn) this.changeTab(tabId, btn);
+    },
+
+    // FEATURE: Watch Ad with 60s Cooldown
+    watchAd: function() {
+        const now = Date.now();
+        // Check 60s cooldown (60000ms)
+        if (now - this.state.lastAdTime < 60000) {
+            const remaining = Math.ceil((60000 - (now - this.state.lastAdTime)) / 1000);
+            this.tg.showAlert(`⏳ Please wait ${remaining} seconds before watching another ad.`);
+            return;
+        }
+
+        if (this.adController) {
+            this.adController.show().then((result) => {
+                // result.done is true if they watched the whole video
+                if (result.done) {
+                    this.state.lastAdTime = Date.now(); // Update time
+                    this.addPoints(50);
+                    this.showFloatingReward(10, "Ad Bonus");
+                    this.tg.showAlert("Success! +10 Gems added.");
+                } else {
+                    // This happens if they close the ad early
+                    this.tg.showAlert("You must watch the full ad to earn gems.");
+                }
+            }).catch((err) => {
+                console.log("Ad error or no fill:", err);
+                this.tg.showAlert("No ads available right now. Try again later!");
+            });
+        } else {
+            // Fallback for local testing (No Adsgram object)
+            // Still enforce cooldown for testing
+            this.state.lastAdTime = Date.now();
+            this.addPoints(10);
+            this.showFloatingReward(10, "Test Reward");
+        }
+    },
+
+    shareApp: function() {
+        const url = "https://t.me/share/url?url=" + encodeURIComponent("https://t.me/YourBot");
+        this.tg.openTelegramLink(url);
+    },
+
+    // --- ANIMATION UTILS ---
+    animateCounter: function(id, start, end) {
+        const obj = document.getElementById(id);
+        const range = end - start;
+        const duration = 1000;
+        let startTime = null;
+
+        const step = (timestamp) => {
+            if (!startTime) startTime = timestamp;
+            const progress = Math.min((timestamp - startTime) / duration, 1);
+            obj.innerHTML = Math.floor(progress * range + start);
+            if (progress < 1) window.requestAnimationFrame(step);
+        };
+        window.requestAnimationFrame(step);
+    },
+
+    showFloatingReward: function(amount, text) {
+        const el = document.createElement('div');
+        el.className = 'floating-reward';
+        el.style.left = '50%';
+        el.style.top = '50%';
+        el.innerHTML = `+${amount} ${text}`;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 1500);
+    },
+
+    showStreakBanner: function(show) {
+        document.getElementById('streakBanner').style.display = show ? 'flex' : 'none';
     }
 };
 
+// Start App
 window.onload = () => app.init();
-

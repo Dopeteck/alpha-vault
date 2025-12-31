@@ -280,18 +280,19 @@ body {
     100% { transform: translate(-50%, -100px); opacity: 0; }
 }
 
-/* Responsive Video Container (16:9 Aspect Ratio) */
+/* Container that holds the video */
 .video-responsive {
     position: relative;
-    padding-bottom: 56.25%; /* 16:9 ratio */
+    padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
     height: 0;
     overflow: hidden;
+    width: 100%;
     border-radius: 12px;
-    margin-bottom: 12px;
+    margin-top: 10px;
     background: #000;
-    display: none; /* Hidden until study starts */
 }
 
+/* The actual iframe inside that container */
 .video-responsive iframe {
     position: absolute;
     top: 0;
@@ -301,19 +302,20 @@ body {
     border: 0;
 }
 
-/* Thumbnail before video plays */
+/* Ensure the thumbnail also takes up proper space */
 .video-thumbnail {
-    position: relative;
     width: 100%;
     height: 180px;
     background-size: cover;
     background-position: center;
     border-radius: 12px;
-    margin-bottom: 10px;
-    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
+    background-color: #1a1a1a;
+    color: #fff;
+    font-weight: bold;
 }
 
 .play-icon {

@@ -64,26 +64,26 @@ const app = {
         const now = new Date();
         const todayStr = now.toDateString();
         const lastStr = this.state.lastVisit;
-
-        // If it's a new day
+    
         if (lastStr !== todayStr) {
             const yesterday = new Date(now);
             yesterday.setDate(yesterday.getDate() - 1);
             
-            // If visited yesterday, increment streak
+            // --- FIX: ADD POINTS FOR EVERY NEW DAY VISIT ---
+            this.addPoints(10); 
+            this.showFloatingReward(10, "Daily Login");
+            // -----------------------------------------------
+    
             if (lastStr === yesterday.toDateString()) {
                 this.state.streak++;
                 this.showStreakBanner(true);
-                this.addPoints(10);
-                this.showFloatingReward(10, "Daily Bonus");
-            } else if (lastStr) {
-                // If missed a day (and not first visit), reset to 1
-                this.state.streak = 1; 
+            } else {
+                this.state.streak = 1; // Reset streak but they still got the 10 pts above
             }
             
             this.state.lastVisit = todayStr;
             this.saveState();
-            this.updateUI(); // Update UI immediately after calculation
+            this.updateUI();
         }
     },
 

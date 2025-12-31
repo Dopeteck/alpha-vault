@@ -1,27 +1,27 @@
 // --- CONFIGURATION ---
-// [FIX] Ensure the Google Script is deployed as "Who has access: Anyone"
+// REPLACE THIS WITH YOUR NEW "ANYONE" ACCESS DEPLOYMENT URL
 const API_URL = 'https://script.google.com/macros/s/AKfycbzGgcIXcOHW5goq1kxc1atqLqG9Bzn7PudTjg1iyv-7hBVexwEb_b-GnsxZhnEDTO0u/exec'; 
 const MAKE_WEBHOOK_URL = "https://hook.eu1.make.com/yajll3jij3l64ttshmxn3ul3p1tkivw2";
+const ADSGRAM_BLOCK_ID = "20304"; 
 
+// Global variable for Adsgram (defined here so all functions can use it)
+let AdController;
 
-// --- SAFETY HELPER ---
+// --- SAFETY HELPER: Prevents JSON crashes ---
 function safeGet(key, fallback) {
     try {
         const item = localStorage.getItem(key);
-        if (!item || item === "undefined") return fallback;
+        if (!item || item === "undefined" || item === "null" || item === "NaN") return fallback;
         return JSON.parse(item);
     } catch (e) {
-        console.warn(`Resetting corrupted key: ${key}`);
         return fallback;
     }
 }
 
 const app = {
-    adController: null, 
-
     state: {
         points: parseInt(localStorage.getItem('av_points')) || 0,
-        streak: parseInt(localStorage.getItem('av_streak')) || 0,
+        streak: parseInt(localStorage.getItem('av_streak')) || 1,
         lastVisit: localStorage.getItem('av_last_visit') || null,
         userXP: parseInt(localStorage.getItem('av_xp')) || 0,
         completed: safeGet('av_completed', []),
@@ -31,6 +31,7 @@ const app = {
     tg: window.Telegram.WebApp,
 
     init: function() {
+        console.log("App Initializing...");
         this.tg.ready();
         this.tg.expand();
         
@@ -41,15 +42,18 @@ const app = {
             if(nameEl) nameEl.innerText = `Agent ${user.first_name}`;
         }
 
-        // 2. Initialize Adsgram
+        // 2. Initialize Adsgram (Production Mode)
+        // We initialize this inside init() to ensure the external script is fully loaded first
         if (window.Adsgram) {
-            this.adController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
+            AdController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
         } else {
-            console.warn("Adsgram script not loaded. Ensure <script> tag is in HTML.");
+            console.error("Adsgram script not loaded! Check your HTML <head>.");
         }
 
-        // 3. Load Data & UI
+        // 3. FORCE UI UPDATE IMMEDIATELY (Fixes the "0 balance" bug)
         this.updateUI();
+
+        // 4. Logic & Data
         this.checkStreak();
         this.fetchData();
         this.renderSalaryEngine();
@@ -61,30 +65,26 @@ const app = {
         const todayStr = now.toDateString();
         const lastStr = this.state.lastVisit;
 
+        // If it's a new day
         if (lastStr !== todayStr) {
             const yesterday = new Date(now);
             yesterday.setDate(yesterday.getDate() - 1);
             
+            // If visited yesterday, increment streak
             if (lastStr === yesterday.toDateString()) {
-                // Consecutive day
                 this.state.streak++;
                 this.showStreakBanner(true);
-                // Reward for keeping streak
                 this.addPoints(10);
                 this.showFloatingReward(10, "Daily Bonus");
-            } else {
-                // Missed a day (or first visit) - Reset Streak
+            } else if (lastStr) {
+                // If missed a day (and not first visit), reset to 1
                 this.state.streak = 1; 
             }
             
             this.state.lastVisit = todayStr;
             this.saveState();
-        } else {
-            this.showStreakBanner(false);
+            this.updateUI(); // Update UI immediately after calculation
         }
-
-        // [FIX] Always update UI at the end so the user sees the reset/increment immediately
-        this.updateUI();
     },
 
     addPoints: function(amount) {
@@ -101,66 +101,79 @@ const app = {
         localStorage.setItem('av_streak', this.state.streak);
         localStorage.setItem('av_last_visit', this.state.lastVisit);
         localStorage.setItem('av_xp', this.state.userXP);
-        localStorage.setItem('av_completed', JSON.stringify(this.state.completed || []));
+        localStorage.setItem('av_completed', JSON.stringify(this.state.completed));
         localStorage.setItem('av_last_ad_time', this.state.lastAdTime);
     },
 
     updateUI: function() {
-        const rankEl = document.getElementById('userRank');
-        if (rankEl) {
-            if (this.state.userXP > 500) rankEl.innerText = "Level 2 Sentinel";
-            if (this.state.userXP > 1000) rankEl.innerText = "Level 3 Elite";
-            if (this.state.userXP >= 1500) rankEl.innerText = "Vault Guardian";
-            if (this.state.userXP >= 5000) rankEl.innerText = "Legendary Whale";
-        }
-        
-        const ptsEl = document.getElementById('pointsDisplay');
-        if(ptsEl) ptsEl.innerText = this.state.points;
-        
-        const xpEl = document.getElementById('xpDisplay');
-        if(xpEl) xpEl.innerText = this.state.userXP;
-        
-        const streakEl = document.getElementById('streakCount');
-        if(streakEl) streakEl.innerText = `${this.state.streak} Days`;
-        
-        const bar = document.getElementById('xpBar');
-        if(bar) {
-            const progress = Math.min((this.state.userXP / 5000) * 100, 100);
-            bar.style.width = `${progress}%`;
+        // Wrapped in try/catch so one missing ID doesn't crash the whole app
+        try {
+            const ptsEl = document.getElementById('pointsDisplay');
+            if(ptsEl) ptsEl.innerText = this.state.points;
+            
+            const xpEl = document.getElementById('xpDisplay');
+            if(xpEl) xpEl.innerText = this.state.userXP;
+            
+            const streakEl = document.getElementById('streakCount');
+            if(streakEl) streakEl.innerText = `${this.state.streak} Days`;
+            
+            const rankEl = document.getElementById('userRank');
+            if (rankEl) {
+                if (this.state.userXP > 500) rankEl.innerText = "Level 2 Sentinel";
+                else rankEl.innerText = "Level 1 Scout";
+            }
+
+            const bar = document.getElementById('xpBar');
+            if(bar) {
+                const progress = Math.min((this.state.userXP / 5000) * 100, 100);
+                bar.style.width = `${progress}%`;
+            }
+        } catch(e) {
+            console.error("UI Update Error:", e);
         }
     },
 
-    // --- DATA ENGINE ---
+    // --- DATA ENGINE (PRODUCTION: NO MOCK) ---
     fetchData: async function() {
-        // [FIX] Add a loading indicator logic here if you have a spinner ID
-        // document.getElementById('loader').style.display = 'block';
-
         try {
-            // [FIX] Added 'redirect: follow' to handle Google Script redirects
-            const res = await fetch(API_URL, {
-                method: 'GET',
-                redirect: 'follow'
-            });
+            // redirect: 'follow' is crucial for Google Scripts
+            const res = await fetch(API_URL, { method: 'GET', redirect: 'follow' });
             
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            if (!res.ok) throw new Error("Server Error");
             
+            const contentType = res.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new TypeError("Received HTML instead of JSON. Check Script Deployment Permissions.");
+            }
+
             const data = await res.json();
             
-            if(data.jobs) this.renderJobs(data.jobs);
-            if(data.learn) this.renderLearn(data.learn);
-            if(data.news) this.renderNews(data.news);
+            // Only render if data exists
+            if (data.jobs) this.renderJobs(data.jobs);
+            if (data.learn) this.renderLearn(data.learn);
+            if (data.news) this.renderNews(data.news);
 
         } catch (e) {
-            console.error("Fetch failed", e);
-            // [FIX] Optional: Show an error in the UI so the user knows
-            const jobCont = document.getElementById('jobsContainer');
-            if(jobCont) jobCont.innerHTML = `<div style="text-align:center; padding:20px;">Unable to load data.<br><small>${e.message}</small></div>`;
+            console.error("Data Load Failed:", e);
+            this.showErrorState('jobsContainer', "Unable to load jobs. Check connection.");
+            this.showErrorState('learnContainer', "Unable to load courses.");
+            this.showErrorState('newsContainer', "Unable to load news.");
         }
+    },
+
+    showErrorState: function(containerId, message) {
+        const el = document.getElementById(containerId);
+        if(el) el.innerHTML = `<div style="text-align:center; padding:20px; color:#e74c3c;">${message}</div>`;
     },
 
     renderJobs: function(jobs) {
         const container = document.getElementById('jobsContainer');
         if (!container) return;
+        
+        if (jobs.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:20px;">No active jobs found.</div>';
+            return;
+        }
 
         const html = jobs.map(j => {
             const requiredGems = parseInt(j.MinGems) || 0;
@@ -185,10 +198,8 @@ const app = {
 
     showLockWarning: function(required) {
         this.tg.showAlert(`🚫 Access Denied!\n\nThis is an Elite Job. You need ${required} Gems to view the link.`);
-        if (this.tg.HapticFeedback) this.tg.HapticFeedback.notificationOccurred('error');
     },
 
-    // --- UNIVERSITY / LEARN LOGIC ---
     renderLearn: function(items) {
         const container = document.getElementById('learnContainer');
         if(!container) return;
@@ -207,18 +218,12 @@ const app = {
             html += courses.map(c => {
                 const courseId = c.Title.replace(/\s+/g, '-').toLowerCase();
                 const isFinished = this.state.completed.includes(courseId);
-                const isYouTube = c.Link.includes('youtube.com') || c.Link.includes('youtu.be');
                 
                 const actionBtn = isFinished 
                     ? `<button class="complete-btn finished" disabled>✅ Completed</button>`
                     : `<button class="complete-btn" id="btn-${courseId}" onclick="app.startStudyTimer('${courseId}', '${c.Link}')">Start Study (+100 XP)</button>`;
 
-                if (isYouTube) {
-                    const videoId = c.Link.split('v=')[1]?.split('&')[0] || c.Link.split('/').pop();
-                    return `<div class="card video-card"><h4>${c.Title}</h4><div class="video-wrapper"><iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div><div class="card-footer">${actionBtn}</div></div>`;
-                } else {
-                    return `<div class="card doc-card"><h4>${c.Title}</h4><div class="card-footer">${actionBtn}</div></div>`;
-                }
+                return `<div class="card doc-card"><h4>${c.Title}</h4><div class="card-footer">${actionBtn}</div></div>`;
             }).join('');
             html += `</div>`;
         }
@@ -252,11 +257,9 @@ const app = {
         if (this.state.completed.includes(courseId)) return;
         this.state.completed.push(courseId);
         this.addPoints(100);
-        this.saveState();
         btn.innerText = "✅ Completed";
         btn.classList.add('finished');
         btn.disabled = true;
-        if(this.tg.HapticFeedback) this.tg.HapticFeedback.notificationOccurred('success');
     },
 
     renderNews: function(news) {
@@ -274,24 +277,15 @@ const app = {
     renderSalaryEngine: function() {
         const container = document.getElementById('salaryContainer');
         if(!container) return;
-        const roles = [
-            { role: "Smart Contract Eng", salary: "$180k - $300k", demand: 95 },
-            { role: "Rust Developer", salary: "$160k - $250k", demand: 90 },
-            { role: "ZK Researcher", salary: "$200k - $400k", demand: 98 },
-            { role: "DeFi Product Mgr", salary: "$140k - $220k", demand: 85 }
-        ];
-        const html = roles.map(r => `
-            <div class="salary-row">
-                <div class="salary-meta"><span style="font-weight:600">${r.role}</span><span style="color:var(--success)">${r.salary}</span></div>
-                <div class="demand-bar-bg"><div class="demand-bar-fill" style="width:${r.demand}%"></div></div>
-            </div>
-        `).join('');
-        container.innerHTML = html;
+        container.innerHTML = `
+            <div class="salary-row"><div class="salary-meta"><span>Smart Contract Eng</span><span style="color:#2ecc71">$180k</span></div><div class="demand-bar-bg"><div class="demand-bar-fill" style="width:95%"></div></div></div>
+            <div class="salary-row"><div class="salary-meta"><span>Rust Dev</span><span style="color:#2ecc71">$200k</span></div><div class="demand-bar-bg"><div class="demand-bar-fill" style="width:90%"></div></div></div>
+        `;
     },
 
     completeJoinTask: function(btn) {
         if (localStorage.getItem('task_join_channel') === 'done') {
-            this.tg.showAlert("You've already claimed this reward!");
+            this.tg.showAlert("Reward already claimed!");
             return;
         }
 
@@ -307,7 +301,8 @@ const app = {
             const userId = this.tg.initDataUnsafe?.user?.id;
             
             if (!userId) {
-                this.tg.showAlert("Could not identify user. Are you using the Telegram App?");
+                // FALLBACK FOR TESTING IF NOT IN TG
+                this.tg.showAlert("Cannot verify User ID. (Testing Mode?)");
                 return;
             }
 
@@ -328,52 +323,42 @@ const app = {
                     btn.style.background = "#2ecc71";
                     this.tg.showAlert("Success! 100 Gems added.");
                 } else {
-                    this.tg.showAlert("❌ You haven't joined yet! Please join and try again.");
+                    this.tg.showAlert("❌ Not a member yet!");
                     btn.disabled = false;
                     btn.innerText = "Check Status";
                 }
             })
             .catch(err => {
-                console.error("Verification Error:", err);
-                this.tg.showAlert("Verification server error. Please try again later.");
+                this.tg.showAlert("Connection Error. Try again.");
                 btn.disabled = false;
                 btn.innerText = "Check Status";
             });
         }
     },
 
-    // --- ADSGRAM INTEGRATION ---
+    // --- ADSGRAM INTEGRATION (PRODUCTION) ---
     watchAd: function() {
-        const now = Date.now();
-        if (now - this.state.lastAdTime < 60000) {
-            const remaining = Math.ceil((60000 - (now - this.state.lastAdTime)) / 1000);
-            this.tg.showAlert(`⏳ Please wait ${remaining} seconds before watching another ad.`);
-            return;
-            const AdController = window.Adsgram.init({ blockId: "your-block-id" });
-        }
-
-        if (this.adController) {
-            this.adController.show().then((result) => {
+        // Use the global AdController defined at the top
+        if (AdController) {
+            AdController.show().then((result) => {
                 if (result.done) {
-                    this.state.lastAdTime = Date.now();
-                    this.addPoints(10);
-                    this.showFloatingReward(10, "Ad Bonus");
-                    this.tg.showAlert("Success! +10 Gems added.");
-                } else {
-                    this.tg.showAlert("You must watch the full ad to earn gems.");
+                    this.addPoints(50);
+                    this.tg.showAlert("Success! +50 Gems.");
                 }
             }).catch((err) => {
-                console.log("Ad skipped or error:", err);
-                this.tg.showAlert("Ad was cancelled or not available.");
+                console.log("Ad Error:", err);
+                this.tg.showAlert("Ad cancelled or not available.");
             });
         } else {
-            // [FIX] Added logic to handle desktop debugging where ads don't load
-            console.log("Adsgram controller not found. (Are you on desktop?)");
-            this.tg.showAlert("Ads are currently unavailable on this device.");
+            this.tg.showAlert("Ads are initializing... please wait.");
+            // Retry init if it failed earlier
+            if (window.Adsgram) {
+                AdController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
+            }
         }
     },
 
-    // --- UI INTERACTIONS ---
+    // --- NAVIGATION ---
     changeTab: function(tabId, btn) {
         document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
         const target = document.getElementById(tabId);
@@ -381,8 +366,6 @@ const app = {
         
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
         btn.classList.add('active');
-
-        if(this.tg.HapticFeedback) this.tg.HapticFeedback.impactOccurred('light');
     },
 
     navTo: function(tabId) {
@@ -391,24 +374,14 @@ const app = {
     },
 
     shareApp: function() {
-        const url = "https://t.me/share/url?url=" + encodeURIComponent("https://t.me/YourBot");
+        const url = "https://t.me/share/url?url=" + encodeURIComponent("https://t.me/VettedWeb3jobs");
         this.tg.openTelegramLink(url);
     },
 
     animateCounter: function(id, start, end) {
         const obj = document.getElementById(id);
         if(!obj) return;
-        const range = end - start;
-        const duration = 1000;
-        let startTime = null;
-
-        const step = (timestamp) => {
-            if (!startTime) startTime = timestamp;
-            const progress = Math.min((timestamp - startTime) / duration, 1);
-            obj.innerHTML = Math.floor(progress * range + start);
-            if (progress < 1) window.requestAnimationFrame(step);
-        };
-        window.requestAnimationFrame(step);
+        obj.innerText = end; 
     },
 
     showFloatingReward: function(amount, text) {

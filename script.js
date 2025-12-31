@@ -201,47 +201,101 @@ const app = {
     },
 
     renderLearn: function(items) {
-        const container = document.getElementById('learnContainer');
-        if(!container) return;
+    const container = document.getElementById('learnContainer');
+    if(!container) return;
 
-        const grouped = items.reduce((acc, item) => {
-            const path = item.Path || 'General';
-            if (!acc[path]) acc[path] = [];
-            acc[path].push(item);
-            return acc;
-        }, {});
+    const grouped = items.reduce((acc, item) => {
+        const path = item.Path || 'General';
+        if (!acc[path]) acc[path] = [];
+        acc[path].push(item);
+        return acc;
+    }, {});
 
-        let html = '';
-        for (const [path, courses] of Object.entries(grouped)) {
-            html += `<div class="path-container"><div class="path-header">${path}</div>`;
-            
-            html += courses.map(c => {
-                const courseId = c.Title.replace(/\s+/g, '-').toLowerCase();
-                const isFinished = this.state.completed.includes(courseId);
-                
-                const actionBtn = isFinished 
-                    ? `<button class="complete-btn finished" disabled>✅ Completed</button>`
-                    : `<button class="complete-btn" id="btn-${courseId}" onclick="app.startStudyTimer('${courseId}', '${c.Link}')">Start Study (+100 XP)</button>`;
-
-                return `<div class="card doc-card"><h4>${c.Title}</h4><div class="card-footer">${actionBtn}</div></div>`;
-            }).join('');
-            html += `</div>`;
-        }
-        container.innerHTML = html;
-    },
-
-    startStudyTimer: function(courseId, link) {
-        const btn = document.getElementById(`btn-${courseId}`);
-        if(!btn) return;
+    let html = '';
+    for (const [path, courses] of Object.entries(grouped)) {
+        html += `<div class="path-container"><div class="path-header">${path}</div>`;
         
+        html += courses.map(c => {
+            const courseId = c.Title.replace(/\s+/g, '-').toLowerCase();
+            const isFinished = this.state.completed.includes(courseId);
+            const url = c.Link.toLowerCase();
+            
+            // DETECT MEDIA TYPE
+            let mediaType = 'doc'; 
+            let videoId = null;
+
+            if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                mediaType = 'video';
+                videoId = this.getYouTubeID(c.Link);
+            } else if (url.endsWith('.pdf')) {
+                mediaType = 'pdf';
+            }
+
+            // GENERATE THE TOP CONTENT (Player or Preview)
+            let mediaHtml = '';
+            if (mediaType === 'video') {
+                const thumbUrl = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+                mediaHtml = `
+                    <span class="media-badge badge-video">Video Class</span>
+                    <div id="thumb-${courseId}" class="video-thumbnail" style="background-image: url('${thumbUrl}');" onclick="app.startStudyTimer('${courseId}', '${videoId}', 'video')">
+                        <div class="play-icon">▶</div>
+                    </div>
+                    <div id="player-${courseId}" class="video-responsive"></div>
+                `;
+            } else {
+                const icon = mediaType === 'pdf' ? '📄' : '📝';
+                const label = mediaType === 'pdf' ? 'PDF Document' : 'Knowledge Base';
+                const badgeClass = mediaType === 'pdf' ? 'badge-pdf' : 'badge-doc';
+                mediaHtml = `
+                    <span class="media-badge ${badgeClass}">${label}</span>
+                    <div class="doc-preview" onclick="app.startStudyTimer('${courseId}', '${c.Link}', 'doc')">
+                        <div class="doc-icon">${icon}</div>
+                        <small>Tap to Read</small>
+                    </div>
+                `;
+            }
+
+            const actionBtn = isFinished 
+                ? `<button class="complete-btn finished" disabled>✅ Completed</button>`
+                : `<button class="complete-btn" id="btn-${courseId}" onclick="app.startStudyTimer('${courseId}', '${videoId || c.Link}', '${mediaType}')">Start Learning (+100 XP)</button>`;
+
+            return `
+                <div class="card doc-card">
+                    <h4>${c.Title}</h4>
+                    ${mediaHtml}
+                    <div class="card-footer">${actionBtn}</div>
+                </div>`;
+        }).join('');
+        html += `</div>`;
+    }
+    container.innerHTML = html;
+},
+
+startStudyTimer: function(courseId, source, type) {
+        const btn = document.getElementById(`btn-${courseId}`);
+        if(!btn || btn.disabled) return;
+    
+        // 1. OPEN MEDIA
+        if (type === 'video') {
+            const thumb = document.getElementById(`thumb-${courseId}`);
+            const playerDiv = document.getElementById(`player-${courseId}`);
+            thumb.style.display = 'none';
+            playerDiv.style.display = 'block';
+            playerDiv.innerHTML = `<iframe src="https://www.youtube.com/embed/${source}?autoplay=1&playsinline=1" frameborder="0" allowfullscreen></iframe>`;
+        } else {
+            // For PDFs and Docs, open in Telegram's built-in browser
+            this.tg.openLink(source);
+        }
+    
+        // 2. START THE 30s TIMER
         let timeLeft = 30; 
-        this.tg.openLink(link);
         btn.disabled = true;
         btn.style.opacity = "0.6";
         
         const countdown = setInterval(() => {
             timeLeft--;
-            btn.innerText = `Studying... (${timeLeft}s)`;
+            btn.innerText = `Learning... (${timeLeft}s)`;
+            
             if (timeLeft <= 0) {
                 clearInterval(countdown);
                 btn.innerText = "Claim +100 XP";
@@ -249,6 +303,63 @@ const app = {
                 btn.disabled = false;
                 btn.style.background = "#2ecc71";
                 btn.onclick = () => this.completeCourse(courseId, btn);
+            }
+        }, 1000);
+    },
+
+   startStudyTimer: function(courseId, source, type) {
+        const btn = document.getElementById(`btn-${courseId}`);
+        if (!btn || btn.disabled) return;
+    
+        // 1. HANDLE MEDIA DISPLAY
+        if (type === 'video') {
+            const thumb = document.getElementById(`thumb-${courseId}`);
+            const playerDiv = document.getElementById(`player-${courseId}`);
+            
+            // Hide thumbnail and show the YouTube Iframe
+            if (thumb && playerDiv) {
+                thumb.style.display = 'none';
+                playerDiv.style.display = 'block';
+                playerDiv.innerHTML = `
+                    <iframe 
+                        src="https://www.youtube.com/embed/${source}?autoplay=1&playsinline=1" 
+                        frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen>
+                    </iframe>
+                `;
+            }
+        } else {
+            // For PDF or DOC, open the link in Telegram's browser
+            // 'source' in this case is the full URL
+            this.tg.openLink(source);
+        }
+    
+        // 2. THE 30-SECOND TIMER LOGIC
+        let timeLeft = 100; 
+        btn.disabled = true;
+        btn.style.opacity = "0.6";
+        btn.classList.add('timer-running'); // Useful for CSS styling
+        
+        const countdown = setInterval(() => {
+            timeLeft--;
+            btn.innerText = `Learning... (${timeLeft}s)`;
+            
+            if (timeLeft <= 0) {
+                clearInterval(countdown);
+                btn.innerText = "Claim +100 XP";
+                btn.style.opacity = "1";
+                btn.disabled = false;
+                btn.style.background = "#2ecc71"; // Turn green when ready
+                btn.style.color = "white";
+                
+                // Re-bind the click to the completion function
+                btn.onclick = () => this.completeCourse(courseId, btn);
+                
+                // Send a small haptic vibration to the user (Telegram feature)
+                if (this.tg.HapticFeedback) {
+                    this.tg.HapticFeedback.notificationOccurred('success');
+                }
             }
         }, 1000);
     },

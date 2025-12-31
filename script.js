@@ -1,9 +1,10 @@
 // --- CONFIGURATION ---
+// [FIX] Ensure the Google Script is deployed as "Who has access: Anyone"
 const API_URL = 'https://script.google.com/macros/s/AKfycbzGgcIXcOHW5goq1kxc1atqLqG9Bzn7PudTjg1iyv-7hBVexwEb_b-GnsxZhnEDTO0u/exec'; 
 const MAKE_WEBHOOK_URL = "https://hook.eu1.make.com/yajll3jij3l64ttshmxn3ul3p1tkivw2";
-const ADSGRAM_BLOCK_ID = " 20304"; 
 
-// --- SAFETY HELPER: Prevents JSON crashes ---
+
+// --- SAFETY HELPER ---
 function safeGet(key, fallback) {
     try {
         const item = localStorage.getItem(key);
@@ -16,7 +17,6 @@ function safeGet(key, fallback) {
 }
 
 const app = {
-    // We store the ad controller here, initially null
     adController: null, 
 
     state: {
@@ -41,11 +41,11 @@ const app = {
             if(nameEl) nameEl.innerText = `Agent ${user.first_name}`;
         }
 
-        // 2. Initialize Adsgram Correctly Here
+        // 2. Initialize Adsgram
         if (window.Adsgram) {
             this.adController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
         } else {
-            console.warn("Adsgram script not loaded yet or blocked.");
+            console.warn("Adsgram script not loaded. Ensure <script> tag is in HTML.");
         }
 
         // 3. Load Data & UI
@@ -66,22 +66,25 @@ const app = {
             yesterday.setDate(yesterday.getDate() - 1);
             
             if (lastStr === yesterday.toDateString()) {
+                // Consecutive day
                 this.state.streak++;
                 this.showStreakBanner(true);
-            } else if (lastStr) {
-                this.state.streak = 1; 
+                // Reward for keeping streak
+                this.addPoints(10);
+                this.showFloatingReward(10, "Daily Bonus");
             } else {
+                // Missed a day (or first visit) - Reset Streak
                 this.state.streak = 1; 
             }
-            
-            this.addPoints(10);
-            this.showFloatingReward(10, "Daily Bonus");
             
             this.state.lastVisit = todayStr;
             this.saveState();
         } else {
             this.showStreakBanner(false);
         }
+
+        // [FIX] Always update UI at the end so the user sees the reset/increment immediately
+        this.updateUI();
     },
 
     addPoints: function(amount) {
@@ -129,15 +132,29 @@ const app = {
 
     // --- DATA ENGINE ---
     fetchData: async function() {
+        // [FIX] Add a loading indicator logic here if you have a spinner ID
+        // document.getElementById('loader').style.display = 'block';
+
         try {
-            const res = await fetch(API_URL);
+            // [FIX] Added 'redirect: follow' to handle Google Script redirects
+            const res = await fetch(API_URL, {
+                method: 'GET',
+                redirect: 'follow'
+            });
+            
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            
             const data = await res.json();
             
             if(data.jobs) this.renderJobs(data.jobs);
             if(data.learn) this.renderLearn(data.learn);
             if(data.news) this.renderNews(data.news);
+
         } catch (e) {
             console.error("Fetch failed", e);
+            // [FIX] Optional: Show an error in the UI so the user knows
+            const jobCont = document.getElementById('jobsContainer');
+            if(jobCont) jobCont.innerHTML = `<div style="text-align:center; padding:20px;">Unable to load data.<br><small>${e.message}</small></div>`;
         }
     },
 
@@ -325,24 +342,23 @@ const app = {
         }
     },
 
-    // --- ADSGRAM INTEGRATION (CORRECTED) ---
+    // --- ADSGRAM INTEGRATION ---
     watchAd: function() {
         const now = Date.now();
-        // Check 60s cooldown
         if (now - this.state.lastAdTime < 60000) {
             const remaining = Math.ceil((60000 - (now - this.state.lastAdTime)) / 1000);
             this.tg.showAlert(`⏳ Please wait ${remaining} seconds before watching another ad.`);
             return;
+            const AdController = window.Adsgram.init({ blockId: "your-block-id" });
         }
 
-        // Check if the controller was successfully initialized in init()
         if (this.adController) {
             this.adController.show().then((result) => {
                 if (result.done) {
                     this.state.lastAdTime = Date.now();
-                    this.addPoints(50);
-                    this.showFloatingReward(50, "Ad Bonus");
-                    this.tg.showAlert("Success! +50 Gems added.");
+                    this.addPoints(10);
+                    this.showFloatingReward(10, "Ad Bonus");
+                    this.tg.showAlert("Success! +10 Gems added.");
                 } else {
                     this.tg.showAlert("You must watch the full ad to earn gems.");
                 }
@@ -351,12 +367,9 @@ const app = {
                 this.tg.showAlert("Ad was cancelled or not available.");
             });
         } else {
-            // Fallback for testing/desktop where Adsgram script might not load
-            console.log("Adsgram not loaded, running mock ad.");
-            this.state.lastAdTime = Date.now();
-            this.addPoints(50);
-            this.showFloatingReward(50, "Test Reward");
-            this.tg.showAlert("Mock Ad Success! (Real ads only appear on Mobile)");
+            // [FIX] Added logic to handle desktop debugging where ads don't load
+            console.log("Adsgram controller not found. (Are you on desktop?)");
+            this.tg.showAlert("Ads are currently unavailable on this device.");
         }
     },
 
@@ -414,5 +427,4 @@ const app = {
     }
 };
 
-// Start App
 window.onload = () => app.init();

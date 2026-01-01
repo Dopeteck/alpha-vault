@@ -480,8 +480,8 @@ startStudyTimer: function(courseId, source, type) {
         if (AdController) {
             AdController.show().then((result) => {
                 if (result.done) {
-                    this.addPoints(50);
-                    this.tg.showAlert("Success! +50 Gems.");
+                    this.addPoints(10);
+                    this.tg.showAlert("Success! +10 Gems.");
                 }
             }).catch((err) => {
                 console.log("Ad Error:", err);

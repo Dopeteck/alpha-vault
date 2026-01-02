@@ -2,7 +2,7 @@
 // REPLACE THIS WITH YOUR NEW "ANYONE" ACCESS DEPLOYMENT URL
 const API_URL = 'https://script.google.com/macros/s/AKfycbzGgcIXcOHW5goq1kxc1atqLqG9Bzn7PudTjg1iyv-7hBVexwEb_b-GnsxZhnEDTO0u/exec'; 
 const MAKE_WEBHOOK_URL = "https://hook.eu1.make.com/yajll3jij3l64ttshmxn3ul3p1tkivw2";
-const ADSGRAM_BLOCK_ID = "20304"; 
+const ADSGRAM_BLOCK_ID = " 20456"; 
 
 // Global variable for Adsgram (defined here so all functions can use it)
 let AdController;

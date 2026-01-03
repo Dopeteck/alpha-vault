@@ -208,6 +208,10 @@ const app = {
 
         container.innerHTML = html;
     },
+
+    showLockWarning: function(required) {
+        this.tg.showAlert(`🚫 Access Denied!\n\nThis is an Elite Job. You need ${required} Gems to view the link.`);
+    },
     
    renderLearn: function(items) {
         const container = document.getElementById('learnContainer');

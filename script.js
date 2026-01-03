@@ -180,30 +180,35 @@ const app = {
         }
 
         const html = jobs.map(j => {
-            const requiredGems = parseInt(j.MinGems) || 0;
-            const isLocked = this.state.points < requiredGems;
+            // Mapping to your actual Google Sheet headers
+            const title = j.Title || "Untitled Position";
+            const category = j.Category || "Web3";
+            const description = j.Description || "No description available";
+            const link = j.Link || "#";
+            const minGems = parseInt(j.MinGems) || 0;
+
+            const isLocked = this.state.points < minGems;
 
             return `
                 <div class="card ${isLocked ? 'locked-card' : ''}" 
-                    onclick="${isLocked ? `app.showLockWarning(${requiredGems})` : `app.tg.openLink('${j.Link || '#'}')`}">
+                    onclick="${isLocked ? `app.showLockWarning(${minGems})` : `app.tg.openLink('${link}')`}">
                     
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h4>${j.Title}</h4>
-                        <span class="tag">${isLocked ? '🔒 Locked' : j.Type}</span>
+                        <h4>${title}</h4>
+                        <span class="tag">${isLocked ? '🔒 Locked' : category}</span>
                     </div>
-                    <p>${j.Company} • ${j.Salary}</p>
-                    ${isLocked ? `<div class="lock-overlay">Need ${requiredGems} Gems to Unlock</div>` : `<div class="unlock-hint">🔓 Access Granted</div>`}
+                    <p style="font-size: 0.85rem; color: #ccc;">${description}</p>
+                    ${isLocked ? 
+                        `<div class="lock-overlay">Need ${minGems} Gems to Unlock</div>` : 
+                        `<div class="unlock-hint">🔓 Access Granted</div>`
+                    }
                 </div>
             `;
         }).join('');
 
         container.innerHTML = html;
     },
-
-    showLockWarning: function(required) {
-        this.tg.showAlert(`🚫 Access Denied!\n\nThis is an Elite Job. You need ${required} Gems to view the link.`);
-    },
-
+    
    renderLearn: function(items) {
         const container = document.getElementById('learnContainer');
         if(!container) return;

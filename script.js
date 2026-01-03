@@ -291,7 +291,7 @@ const app = {
     
         // 2. Open Media & Start 30s Timer
         this.openMedia(itemId, source, type);
-        let timeLeft = 30; 
+        let timeLeft = 60; 
         btn.disabled = true;
         
         const countdown = setInterval(() => {

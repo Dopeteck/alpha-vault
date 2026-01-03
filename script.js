@@ -136,26 +136,30 @@ const app = {
     // --- DATA ENGINE (PRODUCTION: NO MOCK) ---
     fetchData: async function() {
         try {
-            // redirect: 'follow' is crucial for Google Scripts
             const res = await fetch(API_URL, { method: 'GET', redirect: 'follow' });
             
             if (!res.ok) throw new Error("Server Error");
             
             const contentType = res.headers.get("content-type");
             if (!contentType || !contentType.includes("application/json")) {
-                throw new TypeError("Received HTML instead of JSON. Check Script Deployment Permissions.");
+                throw new TypeError("Received HTML instead of JSON.");
             }
-
+    
             const data = await res.json();
             
-            // Only render if data exists
+            // --- THE CHANGE IS HERE ---
+            if (data.learn) {
+                this.state.rawLearnData = data.learn; // Store the list so we can check progress later
+                this.renderLearn(data.learn);
+            }
+            // --------------------------
+    
             if (data.jobs) this.renderJobs(data.jobs);
-            if (data.learn) this.renderLearn(data.learn);
             if (data.news) this.renderNews(data.news);
-
+    
         } catch (e) {
             console.error("Data Load Failed:", e);
-            this.showErrorState('jobsContainer', "Unable to load jobs. Check connection.");
+            this.showErrorState('jobsContainer', "Unable to load jobs.");
             this.showErrorState('learnContainer', "Unable to load courses.");
             this.showErrorState('newsContainer', "Unable to load news.");
         }
@@ -200,185 +204,165 @@ const app = {
         this.tg.showAlert(`🚫 Access Denied!\n\nThis is an Elite Job. You need ${required} Gems to view the link.`);
     },
 
-    renderLearn: function(items) {
-    const container = document.getElementById('learnContainer');
-    if(!container) return;
-
-    const grouped = items.reduce((acc, item) => {
-        const path = item.Path || 'General';
-        if (!acc[path]) acc[path] = [];
-        acc[path].push(item);
-        return acc;
-    }, {});
-
-    let html = '';
-    for (const [path, courses] of Object.entries(grouped)) {
-        html += `<div class="path-container"><div class="path-header">${path}</div>`;
-        
-        html += courses.map(c => {
-            const courseId = c.Title.replace(/\s+/g, '-').toLowerCase();
-            const isFinished = this.state.completed.includes(courseId);
-            const url = c.Link.toLowerCase();
-            
-            // DETECT MEDIA TYPE
-            let mediaType = 'doc'; 
-            let videoId = null;
-
-            if (url.includes('youtube.com') || url.includes('youtu.be')) {
-                mediaType = 'video';
-                videoId = this.getYouTubeID(c.Link);
-            } else if (url.endsWith('.pdf')) {
-                mediaType = 'pdf';
-            }
-
-            // GENERATE THE TOP CONTENT (Player or Preview)
-            let mediaHtml = '';
-            if (mediaType === 'video') {
-                const thumbUrl = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-                mediaHtml = `
-                    <span class="media-badge badge-video">Video Class</span>
-                    <div id="thumb-${courseId}" class="video-thumbnail" style="background-image: url('${thumbUrl}');" onclick="app.startStudyTimer('${courseId}', '${videoId}', 'video')">
-                        <div class="play-icon">▶</div>
-                    </div>
-                    <div id="player-${courseId}" class="video-responsive"></div>
-                `;
-            } else {
-                const icon = mediaType === 'pdf' ? '📄' : '📝';
-                const label = mediaType === 'pdf' ? 'PDF Document' : 'Knowledge Base';
-                const badgeClass = mediaType === 'pdf' ? 'badge-pdf' : 'badge-doc';
-                mediaHtml = `
-                    <span class="media-badge ${badgeClass}">${label}</span>
-                    <div class="doc-preview" onclick="app.startStudyTimer('${courseId}', '${c.Link}', 'doc')">
-                        <div class="doc-icon">${icon}</div>
-                        <small>Tap to Read</small>
-                    </div>
-                `;
-            }
-
-            const actionBtn = isFinished 
-                ? `<button class="complete-btn finished" disabled>✅ Completed</button>`
-                : `<button class="complete-btn" id="btn-${courseId}" onclick="app.startStudyTimer('${courseId}', '${videoId || c.Link}', '${mediaType}')">Start Learning (+100 XP)</button>`;
-
-            return `
-                <div class="card doc-card">
-                    <h4>${c.Title}</h4>
-                    ${mediaHtml}
-                    <div class="card-footer">${actionBtn}</div>
-                </div>`;
-        }).join('');
-        html += `</div>`;
-    }
-    container.innerHTML = html;
-},
-
-startStudyTimer: function(courseId, source, type) {
-        const btn = document.getElementById(`btn-${courseId}`);
-        if(!btn || btn.disabled) return;
+   renderLearn: function(items) {
+        const container = document.getElementById('learnContainer');
+        if(!container) return;
     
-        // 1. OPEN MEDIA
-        if (type === 'video') {
-            const thumb = document.getElementById(`thumb-${courseId}`);
-            const playerDiv = document.getElementById(`player-${courseId}`);
-            thumb.style.display = 'none';
-            playerDiv.style.display = 'block';
-            playerDiv.innerHTML = `<iframe src="https://www.youtube.com/embed/${source}?autoplay=1&playsinline=1" frameborder="0" allowfullscreen></iframe>`;
-        } else {
-            // For PDFs and Docs, open in Telegram's built-in browser
-            this.tg.openLink(source);
+        // Group items by Path (This is our "Course")
+        const grouped = items.reduce((acc, item) => {
+            const path = item.Path || 'General';
+            if (!acc[path]) acc[path] = [];
+            acc[path].push(item);
+            return acc;
+        }, {});
+    
+        let html = '';
+        for (const [path, courses] of Object.entries(grouped)) {
+            const courseId = path.replace(/\s+/g, '-').toLowerCase();
+            const isCourseClaimed = this.state.completed.includes(courseId);
+            
+            html += `<div class="path-container">
+                        <div class="path-header">${path}</div>`;
+            
+            html += courses.map(c => {
+                const itemId = c.Title.replace(/\s+/g, '-').toLowerCase();
+                const isItemViewed = safeGet('viewed_items', []).includes(itemId);
+                const url = c.Link.toLowerCase();
+                
+                let mediaType = 'doc'; 
+                let videoId = null;
+                if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                    mediaType = 'video';
+                    videoId = this.getYouTubeID(c.Link);
+                }
+    
+                return `
+                    <div class="card doc-card">
+                        <h4>${c.Title}</h4>
+                        <div id="player-${itemId}" class="video-responsive" style="display:none"></div>
+                        <div class="card-footer">
+                            <button class="complete-btn ${isItemViewed ? 'finished' : ''}" 
+                                    id="btn-${itemId}" 
+                                    onclick="app.startStudyTimer('${itemId}', '${videoId || c.Link}', '${mediaType}', '${courseId}')">
+                                ${isItemViewed ? "✅ Viewed" : "Start Learning"}
+                            </button>
+                        </div>
+                    </div>`;
+            }).join('');
+    
+            // ADD THE MASTER CLAIM BUTTON AT THE BOTTOM OF THE PATH
+            const allItemsInCourse = courses.map(c => c.Title.replace(/\s+/g, '-').toLowerCase());
+            const viewedItems = safeGet('viewed_items', []);
+            const canClaim = allItemsInCourse.every(id => viewedItems.includes(id)) && !isCourseClaimed;
+    
+            html += `
+                <div class="course-claim-section" style="margin-top:15px; text-align:center;">
+                    <button id="claim-${courseId}" 
+                            class="claim-master-btn ${isCourseClaimed ? 'finished' : (canClaim ? 'ready' : 'locked')}"
+                            ${!canClaim || isCourseClaimed ? 'disabled' : ''}
+                            onclick="app.claimCourseXP('${courseId}', 100)">
+                        ${isCourseClaimed ? "✅ Course XP Claimed" : (canClaim ? "🎁 Claim 100 XP" : "🔒 Complete all items to unlock XP")}
+                    </button>
+                </div>
+            </div><hr>`;
         }
-    
-        // 2. START THE 30s TIMER
-        let timeLeft = 30; 
-        btn.disabled = true;
-        btn.style.opacity = "0.6";
-        
-        const countdown = setInterval(() => {
-            timeLeft--;
-            btn.innerText = `Learning... (${timeLeft}s)`;
-            
-            if (timeLeft <= 0) {
-                clearInterval(countdown);
-                btn.innerText = "Claim +100 XP";
-                btn.style.opacity = "1";
-                btn.disabled = false;
-                btn.style.background = "#2ecc71";
-                btn.onclick = () => this.completeCourse(courseId, btn);
-            }
-        }, 1000);
+        container.innerHTML = html;
     },
-
-   startStudyTimer: function(courseId, source, type) {
-        const btn = document.getElementById(`btn-${courseId}`);
+    
+    startStudyTimer: function(itemId, source, type, courseId) {
+        const btn = document.getElementById(`btn-${itemId}`);
         if (!btn || btn.disabled) return;
     
-        // 1. HANDLE MEDIA DISPLAY
-        if (type === 'video') {
-            const thumb = document.getElementById(`thumb-${courseId}`);
-            const playerDiv = document.getElementById(`player-${courseId}`);
-            
-            // Hide thumbnail and show the YouTube Iframe
-            if (thumb && playerDiv) {
-                thumb.style.display = 'none';
-                playerDiv.style.display = 'block';
-                playerDiv.innerHTML = `
-                    <iframe 
-                        src="https://www.youtube.com/embed/${source}?autoplay=1&playsinline=1" 
-                        frameborder="0" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                        allowfullscreen>
-                    </iframe>
-                `;
-            }
-        } else {
-            // For PDF or DOC, open the link in Telegram's browser
-            // 'source' in this case is the full URL
-            this.tg.openLink(source);
+        // 1. If already viewed, just open it (Skip timer)
+        const viewed = safeGet('viewed_items', []);
+        if (viewed.includes(itemId)) {
+            this.openMedia(itemId, source, type);
+            return;
         }
     
-        // 2. THE 30-SECOND TIMER LOGIC
-        let timeLeft = 100; 
+        // 2. Open Media & Start 30s Timer
+        this.openMedia(itemId, source, type);
+        let timeLeft = 30; 
         btn.disabled = true;
-        btn.style.opacity = "0.6";
-        btn.classList.add('timer-running'); // Useful for CSS styling
         
         const countdown = setInterval(() => {
             timeLeft--;
-            btn.innerText = `Learning... (${timeLeft}s)`;
-            
+            btn.innerText = `Reading... (${timeLeft}s)`;
             if (timeLeft <= 0) {
                 clearInterval(countdown);
-                btn.innerText = "Claim +100 XP";
-                btn.style.opacity = "1";
-                btn.disabled = false;
-                btn.style.background = "#2ecc71"; // Turn green when ready
-                btn.style.color = "white";
-                
-                // Re-bind the click to the completion function
-                btn.onclick = () => this.completeCourse(courseId, btn);
-                
-                // Send a small haptic vibration to the user (Telegram feature)
-                if (this.tg.HapticFeedback) {
-                    this.tg.HapticFeedback.notificationOccurred('success');
-                }
+                this.markItemAsViewed(itemId, courseId, btn);
             }
         }, 1000);
     },
-
-    // --- HELPERS ---
-    getYouTubeID: function(url) {
-        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-        const match = url.match(regExp);
-        return (match && match[2].length === 11) ? match[2] : null;
+    
+    // New Helper to keep logic clean
+    openMedia: function(itemId, source, type) {
+        if (type === 'video') {
+            const playerDiv = document.getElementById(`player-${itemId}`);
+            playerDiv.style.display = 'block';
+            playerDiv.innerHTML = `<iframe src="https://www.youtube.com/embed/${source}?autoplay=1" frameborder="0" allowfullscreen></iframe>`;
+        } else {
+            this.tg.openLink(source);
+        }
     },
 
-    completeCourse: function(courseId, btn) {
-        if (this.state.completed.includes(courseId)) return;
-        this.state.completed.push(courseId);
-        this.addPoints(100);
-        btn.innerText = "✅ Completed";
+
+markItemAsViewed: function(itemId, courseId, btn) {
+        // 1. Save individual item progress
+        let viewed = safeGet('viewed_items', []);
+        if (!viewed.includes(itemId)) {
+            viewed.push(itemId);
+            localStorage.setItem('viewed_items', JSON.stringify(viewed));
+        }
+    
+        // 2. Update Item Button
+        btn.innerText = "✅ Viewed";
         btn.classList.add('finished');
-        btn.disabled = true;
+        btn.disabled = false; // Allow re-watching
+    
+        // 3. Check if the Master Claim Button should unlock
+        this.checkCourseUnlock(courseId);
     },
+
+checkCourseUnlock: function(courseId) {
+        // Re-run the logic to see if all items in this course (Path) are viewed
+        const viewed = safeGet('viewed_items', []);
+        // Get items belonging to this course from our raw data
+        const courseItems = this.state.rawLearnData
+            .filter(item => (item.Path || 'General').replace(/\s+/g, '-').toLowerCase() === courseId)
+            .map(item => item.Title.replace(/\s+/g, '-').toLowerCase());
+    
+        const allFinished = courseItems.every(id => viewed.includes(id));
+    
+        if (allFinished) {
+            const claimBtn = document.getElementById(`claim-${courseId}`);
+            if (claimBtn && !this.state.completed.includes(courseId)) {
+                claimBtn.disabled = false;
+                claimBtn.innerText = "🎁 Claim 100 XP";
+                claimBtn.classList.remove('locked');
+                claimBtn.classList.add('ready');
+            }
+        }
+    },
+
+    claimCourseXP: function(courseId, amount) {
+        if (this.state.completed.includes(courseId)) return;
+    
+        this.state.completed.push(courseId);
+        this.addPoints(amount); // This updates XP and points automatically
+        this.saveState();
+        
+        const btn = document.getElementById(`claim-${courseId}`);
+        btn.innerText = "✅ Course XP Claimed";
+        btn.disabled = true;
+        btn.classList.remove('ready');
+        btn.classList.add('finished');
+    
+        if (this.tg.HapticFeedback) {
+            this.tg.HapticFeedback.notificationOccurred('success');
+        }
+    },
+
 
     renderNews: function(news) {
         const container = document.getElementById('newsContainer');
